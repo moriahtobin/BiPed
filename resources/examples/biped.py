@@ -5,7 +5,7 @@ import sys
 from icecube import icetray, dataio, dataclasses, photonics_service, gulliver
 from icecube import millipede
 load('gulliver-modules')
-load('biped')
+load('BiPed')
 
 if len(sys.argv) < 3:
 	print 'Usage: %s output.i3 input1.i3 [input2.i3] ...'
@@ -22,7 +22,9 @@ tray.AddModule('I3Reader', 'reader', FilenameList=files)
 tray.AddService('MuMillipedeParametrizationFactory', 'millipedeparam',
     MuonSpacing=1, ShowerSpacing=1, TimeStepsize=0, VertexStepSize=2,
     # DirectionStepsize=0.02, FitBiped=True)
-    DirectionStepsize=0.02, LinLengthStepSize=1, FitBiped=True)
+    DirectionStepsize=0.02, 
+    #LinLengthStepSize=1
+)
 tray.AddService('BipedLikelihoodFactory', 'bipedllh',
     MuonPhotonicsService=muon_service, CascadePhotonicsService=cascade_service,
     PhotonsPerBin=1, Pulses='OfflinePulses')

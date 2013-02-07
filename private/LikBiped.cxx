@@ -9,10 +9,10 @@
 typedef I3Vector<I3Particle> I3VectorI3Particle;
 typedef boost::shared_ptr<I3VectorI3Particle> I3VectorI3ParticlePtr;
 
-class MillipedeLikelihood : public I3MillipedeService,
+class BipedLikelihood : public I3MillipedeService,
     public I3EventLogLikelihoodBase {
 	public:
-		MillipedeLikelihood(const I3Context &context);
+		BipedLikelihood(const I3Context &context);
 
 		// Gulliver interface
 		void SetEvent(const I3Frame &);
@@ -33,18 +33,18 @@ class MillipedeLikelihood : public I3MillipedeService,
 		}
 			
 	private:
-		SET_LOGGER("MillipedeLikelihood");
+		SET_LOGGER("BipedLikelihood");
 		
 		I3VectorI3ParticlePtr ExtractHypothesis(const I3EventHypothesis&);
 };
 
-I3_POINTER_TYPEDEFS(MillipedeLikelihood);
+I3_POINTER_TYPEDEFS(BipedLikelihood);
 
-MillipedeLikelihood::MillipedeLikelihood(const I3Context &context) : I3MillipedeService(context), I3EventLogLikelihoodBase()
+BipedLikelihood::BipedLikelihood(const I3Context &context) : I3MillipedeService(context), I3EventLogLikelihoodBase()
 {}
 
 unsigned int
-MillipedeLikelihood::GetMultiplicity()
+BipedLikelihood::GetMultiplicity()
 {
 	unsigned j = 0;
 
@@ -56,26 +56,26 @@ MillipedeLikelihood::GetMultiplicity()
 }
 
 void
-MillipedeLikelihood::SetEvent(const I3Frame &frame)
+BipedLikelihood::SetEvent(const I3Frame &frame)
 {
 	DatamapFromFrame(frame);
 }
 
 double
-MillipedeLikelihood::GetLogLikelihood(const I3EventHypothesis &hypo)
+BipedLikelihood::GetLogLikelihood(const I3EventHypothesis &hypo)
 {
 	return GetLogLikelihood(hypo, NULL, false, 1.);
 }
 
 double
-MillipedeLikelihood::GetLogLikelihoodWithGradient(const I3EventHypothesis &hypo,
+BipedLikelihood::GetLogLikelihoodWithGradient(const I3EventHypothesis &hypo,
     I3EventHypothesis &gradient, double weight)
 {
 	return GetLogLikelihood(hypo, &gradient, true, 1.);
 }
 
 I3VectorI3ParticlePtr
-MillipedeLikelihood::ExtractHypothesis(const I3EventHypothesis &hypo)
+BipedLikelihood::ExtractHypothesis(const I3EventHypothesis &hypo)
 {
 	I3VectorI3ParticlePtr sources = 
 	    boost::dynamic_pointer_cast<I3VectorI3Particle>(hypo.nonstd);
@@ -87,7 +87,7 @@ MillipedeLikelihood::ExtractHypothesis(const I3EventHypothesis &hypo)
 }
 
 I3FrameObjectPtr
-MillipedeLikelihood::GetDiagnostics(const I3EventHypothesis &hypo)
+BipedLikelihood::GetDiagnostics(const I3EventHypothesis &hypo)
 {
 	cholmod_sparse *response_matrix;
 	I3VectorI3ParticlePtr sources = ExtractHypothesis(hypo);
@@ -107,7 +107,7 @@ MillipedeLikelihood::GetDiagnostics(const I3EventHypothesis &hypo)
 }
 
 double
-MillipedeLikelihood::GetLogLikelihood(const I3EventHypothesis &hypo,
+BipedLikelihood::GetLogLikelihood(const I3EventHypothesis &hypo,
     I3EventHypothesis *gradient, bool fit_energy, double weight)
 {
 	cholmod_sparse *response_matrix, *gradients;
@@ -168,7 +168,7 @@ MillipedeLikelihood::GetLogLikelihood(const I3EventHypothesis &hypo,
 	return llh;
 }
 
-typedef I3SingleServiceFactory<MillipedeLikelihood, I3EventLogLikelihoodBase>
-    MillipedeLikelihoodFactory;
-I3_SERVICE_FACTORY(MillipedeLikelihoodFactory);
+typedef I3SingleServiceFactory<BipedLikelihood, I3EventLogLikelihoodBase>
+    BipedLikelihoodFactory;
+I3_SERVICE_FACTORY(BipedLikelihoodFactory);
 

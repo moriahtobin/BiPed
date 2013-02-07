@@ -6,21 +6,21 @@
 #include <icetray/I3ServiceFactory.h>
 #include <icetray/I3SingleServiceFactory.h>
 
-static void MuMillipedeHypothesis(I3ParticleConstPtr track,
+static void BipedHypothesis(I3ParticleConstPtr track,
     std::vector<I3Particle> &hypothesis, double boundary,
     double muonspacing, double showerspacing, bool startingtrack,
     double slantstart, double slantstop);
 
-class MuMillipede : public I3MillipedeConditionalModule
+class Biped : public I3MillipedeConditionalModule
 {
 	public:
-		MuMillipede(const I3Context &);
+		Biped(const I3Context &);
 		void Configure();
 		void Hypothesis(I3FramePtr frame,
 		    std::vector<I3Particle> &hypothesis);
 		void Physics(I3FramePtr frame);
 	private:
-		SET_LOGGER("MuMillipede");
+		SET_LOGGER("BipedParameterization");
 
 		std::string seed_;
 		double boundary_;
@@ -32,9 +32,9 @@ class MuMillipede : public I3MillipedeConditionalModule
 		double slantstop_;
 };
 
-class MuMillipedeParametrization : public I3HalfSphereParametrization {
+class BipedParametrization : public I3HalfSphereParametrization {
 	public:
-		MuMillipedeParametrization(const I3Context &);
+		BipedParametrization(const I3Context &);
 		void Configure();
 
 		double boundary_;
@@ -49,16 +49,16 @@ class MuMillipedeParametrization : public I3HalfSphereParametrization {
 		void UpdateParameters();
 		void ApplyChainRule();
 	private:
-		SET_LOGGER("MuMillipedeParametrization");
+		SET_LOGGER("BipedParametrization");
 };
 
 typedef
-    I3SingleServiceFactory<MuMillipedeParametrization, I3ParametrizationBase>
-    MuMillipedeParametrizationFactory;
-I3_SERVICE_FACTORY(MuMillipedeParametrizationFactory);
-I3_MODULE(MuMillipede);
+    I3SingleServiceFactory<BipedParametrization, I3ParametrizationBase>
+    BipedParametrizationFactory;
+I3_SERVICE_FACTORY(BipedParametrizationFactory);
+I3_MODULE(Biped);
 
-MuMillipede::MuMillipede(const I3Context &context) :
+Biped::Biped(const I3Context &context) :
     I3MillipedeConditionalModule(context)
 {
 	AddOutBox("OutBox");
@@ -85,7 +85,7 @@ MuMillipede::MuMillipede(const I3Context &context) :
 }
 
 void
-MuMillipede::Configure()
+Biped::Configure()
 {
 	I3MillipedeConditionalModule::Configure();
 
@@ -103,7 +103,7 @@ MuMillipede::Configure()
 }
 
 void
-MuMillipede::Physics(I3FramePtr frame)
+Biped::Physics(I3FramePtr frame)
 {
 	if (!frame->Has(pulses_name_) || !frame->Has(seed_)) {
 		PushFrame(frame);
@@ -112,7 +112,7 @@ MuMillipede::Physics(I3FramePtr frame)
 
 	boost::shared_ptr<I3Vector<I3Particle> > sources(new
 	    I3Vector<I3Particle>);
-	MuMillipedeHypothesis(frame->Get<I3ParticleConstPtr>(seed_), *sources,
+	BipedHypothesis(frame->Get<I3ParticleConstPtr>(seed_), *sources,
 	    boundary_, muonspacing_, showerspacing_, fit_starting_track_,
 	    slantstart_, slantstop_);
 	if (sources->size() == 0) {
@@ -138,7 +138,7 @@ MuMillipede::Physics(I3FramePtr frame)
 	PushFrame(frame);
 }
 
-MuMillipedeParametrization::MuMillipedeParametrization(const I3Context& context)
+BipedParametrization::BipedParametrization(const I3Context& context)
     : I3HalfSphereParametrization(context)
 {
 	AddParameter("Boundary", "Segment boundary, in meters (fits segments "
@@ -161,7 +161,7 @@ MuMillipedeParametrization::MuMillipedeParametrization(const I3Context& context)
 }
 	
 void
-MuMillipedeParametrization::UpdatePhysicsVariables()
+BipedParametrization::UpdatePhysicsVariables()
 {
 	// Do the hard work
 	I3HalfSphereParametrization::UpdatePhysicsVariables();
@@ -169,7 +169,7 @@ MuMillipedeParametrization::UpdatePhysicsVariables()
 	// Add the hypothesis vector
 	boost::shared_ptr<I3Vector<I3Particle> > sources(new
 	    I3Vector<I3Particle>);
-	MuMillipedeHypothesis(hypothesis_->particle, *sources,
+	BipedHypothesis(hypothesis_->particle, *sources,
 	    boundary_, muonspacing_, showerspacing_,
 	    fit_starting_track_, slantstart_, slantstop_);
 
@@ -184,14 +184,14 @@ MuMillipedeParametrization::UpdatePhysicsVariables()
 }
 
 void
-MuMillipedeParametrization::UpdateParameters()
+BipedParametrization::UpdateParameters()
 {
 	I3HalfSphereParametrization::UpdateParameters();
 	UpdatePhysicsVariables();
 }
 
 void
-MuMillipedeParametrization::ApplyChainRule()
+BipedParametrization::ApplyChainRule()
 {
 	I3Particle& gradient = *(gradient_->particle);
 	boost::shared_ptr<I3Vector<I3Particle> > gradsources =
@@ -238,7 +238,7 @@ MuMillipedeParametrization::ApplyChainRule()
 }
 
 void
-MuMillipedeParametrization::Configure()
+BipedParametrization::Configure()
 {
 	I3HalfSphereParametrization::Configure();
 
@@ -251,7 +251,7 @@ MuMillipedeParametrization::Configure()
 }
 
 static void
-MuMillipedeHypothesis(I3ParticleConstPtr track,
+BipedHypothesis(I3ParticleConstPtr track,
     std::vector<I3Particle> &hypothesis, double boundary,
     double muonspacing, double showerspacing, bool startingtrack,
     double slantstart, double slantstop)
