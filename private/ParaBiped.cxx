@@ -11,10 +11,10 @@ static void BipedHypothesis(I3ParticleConstPtr track,
     double muonspacing, double showerspacing, bool startingtrack,
     double slantstart, double slantstop);
 
-class Biped : public I3MillipedeConditionalModule
+class BipedParameterization : public I3MillipedeConditionalModule
 {
 	public:
-		Biped(const I3Context &);
+		BipedParameterization(const I3Context &);
 		void Configure();
 		void Hypothesis(I3FramePtr frame,
 		    std::vector<I3Particle> &hypothesis);
@@ -56,9 +56,9 @@ typedef
     I3SingleServiceFactory<BipedParametrization, I3ParametrizationBase>
     BipedParametrizationFactory;
 I3_SERVICE_FACTORY(BipedParametrizationFactory);
-I3_MODULE(Biped);
+I3_MODULE(BipedParameterization);
 
-Biped::Biped(const I3Context &context) :
+BipedParameterization::BipedParameterization(const I3Context &context) :
     I3MillipedeConditionalModule(context)
 {
 	AddOutBox("OutBox");
@@ -85,7 +85,7 @@ Biped::Biped(const I3Context &context) :
 }
 
 void
-Biped::Configure()
+BipedParameterization::Configure()
 {
 	I3MillipedeConditionalModule::Configure();
 
@@ -103,7 +103,7 @@ Biped::Configure()
 }
 
 void
-Biped::Physics(I3FramePtr frame)
+BipedParameterization::Physics(I3FramePtr frame)
 {
 	if (!frame->Has(pulses_name_) || !frame->Has(seed_)) {
 		PushFrame(frame);

@@ -40,6 +40,7 @@ tray.AddModule('I3SimpleFitter', 'MillipedeFit', SeedService='seed',
 
 tray.AddModule('I3Writer', 'writer', filename=sys.argv[1])
 tray.AddModule('TrashCan','can')
+print "Got the tray put together, start running..."
 tray.Execute(6)
 tray.Finish()
 
