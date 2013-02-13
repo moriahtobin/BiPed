@@ -1,6 +1,6 @@
 #include <millipede/Millipede.h>
 
-#include <lilliput/parametrization/I3HalfSphereParametrization.h>
+#include <lilliput/parametrization/I3SimpleParametrization.h>
 #include <gulliver/I3ParametrizationBase.h>
 #include <gulliver/I3EventHypothesis.h>
 #include <icetray/I3ServiceFactory.h>
@@ -8,31 +8,11 @@
 
 static void BipedHypothesis(I3ParticleConstPtr track,
     std::vector<I3Particle> &hypothesis, double boundary,
-    double muonspacing, double showerspacing, bool startingtrack,
+    double muonspacing, double showerspacing, bool containedtrack,
     double slantstart, double slantstop);
 
-class BipedParameterization : public I3MillipedeConditionalModule
-{
-	public:
-		BipedParameterization(const I3Context &);
-		void Configure();
-		void Hypothesis(I3FramePtr frame,
-		    std::vector<I3Particle> &hypothesis);
-		void Physics(I3FramePtr frame);
-	private:
-		SET_LOGGER("BipedParameterization");
 
-		std::string seed_;
-		double boundary_;
-		double muonspacing_;
-		double showerspacing_;
-		std::string output_name;
-		bool fit_starting_track_;
-		double slantstart_;
-		double slantstop_;
-};
-
-class BipedParametrization : public I3HalfSphereParametrization {
+class BipedParametrization : public I3SimpleParametrization {
 	public:
 		BipedParametrization(const I3Context &);
 		void Configure();
@@ -41,7 +21,7 @@ class BipedParametrization : public I3HalfSphereParametrization {
 		double muonspacing_;
 		double showerspacing_;
 		std::string name_;
-		bool fit_starting_track_;
+		bool fit_contained_track_;
 		double slantstart_;
 		double slantstop_;
 
@@ -53,93 +33,13 @@ class BipedParametrization : public I3HalfSphereParametrization {
 };
 
 typedef
-    I3SingleServiceFactory<BipedParametrization, I3ParametrizationBase>
+    I3SingleServiceFactory<BipedParametrization, I3SimpleParametrization>
     BipedParametrizationFactory;
 I3_SERVICE_FACTORY(BipedParametrizationFactory);
-I3_MODULE(BipedParameterization);
 
-BipedParameterization::BipedParameterization(const I3Context &context) :
-    I3MillipedeConditionalModule(context)
-{
-	AddOutBox("OutBox");
-
-	AddParameter("SeedTrack", "Track to fit", "");
-	AddParameter("Boundary", "Segment boundary, in meters (fits segments "
-	    "in [-x,x] in x,y,z in detector coordinates)", 600);
-	AddParameter("MuonSpacing", "Spacing of muon (ionization) sources "
-	    "along the track, in meters. MUST match source extension in "
-	    "muon tables. Set to 0 to not include ionization sources.", 15);
-	AddParameter("ShowerSpacing", "Spacing of shower (radiative) "
-	    "sources along the track, in meters. Set to 0 to not include "
-	    "radiative losses.", 15);
-	AddParameter("Output", "Name of output", "MillipededEdx");
-	AddParameter("FitStartingTrack", "Parameterize a track starting at "
-	    "the fit time at the vertex instead of a throughgoing track",
-	    false);
-	AddParameter("StartSlantDepth", "Start of segment boundary in slant "
-	    "depth bins (fits segments in [Xstart,Xend] in detector "
-	    "coordinates). If negative, boundary used instead.", -1);
-	AddParameter("EndSlantDepth",  "End of Segment boundary in slant depth "
-	    "bins (fits segments in [Xstart,Xend] in detector coordinates). "
-	    "If negative, boundary used instead.", -1);
-}
-
-void
-BipedParameterization::Configure()
-{
-	I3MillipedeConditionalModule::Configure();
-
-	GetParameter("SeedTrack", seed_);
-	GetParameter("Boundary", boundary_);
-	GetParameter("MuonSpacing", muonspacing_);
-	GetParameter("ShowerSpacing", showerspacing_);
-	GetParameter("Output", output_name);
-	GetParameter("FitStartingTrack", fit_starting_track_);
-	GetParameter("StartSlantDepth", slantstart_);
-	GetParameter("EndSlantDepth", slantstop_);
-	if (timeBinPhotons_ >= 0 && timeBinPhotons_ < 5)
-		log_warn("PhotonsPerBin set to %f, but should not be "
-		    "less than 5!", timeBinPhotons_);
-}
-
-void
-BipedParameterization::Physics(I3FramePtr frame)
-{
-	if (!frame->Has(pulses_name_) || !frame->Has(seed_)) {
-		PushFrame(frame);
-		return;
-	}
-
-	boost::shared_ptr<I3Vector<I3Particle> > sources(new
-	    I3Vector<I3Particle>);
-	BipedHypothesis(frame->Get<I3ParticleConstPtr>(seed_), *sources,
-	    boundary_, muonspacing_, showerspacing_, fit_starting_track_,
-	    slantstart_, slantstop_);
-	if (sources->size() == 0) {
-		PushFrame(frame);
-		return;
-	}
-
-	cholmod_sparse *response_matrix;
-	DatamapFromFrame(*frame);
-	response_matrix = GetResponseMatrix(*sources);
-	if (response_matrix == NULL)
-		log_fatal("Null basis matrix");
-	SolveEnergyLosses(*sources, response_matrix);
-
-	MillipedeFitParamsPtr params(new MillipedeFitParams);
-	Millipede::FitStatistics(domCache_, *sources, 0, response_matrix,
-	    &*params, &c);
-	cholmod_l_free_sparse(&response_matrix, &c);
-
-	frame->Put(output_name, sources);
-	frame->Put(output_name + "FitParams", params);
-
-	PushFrame(frame);
-}
 
 BipedParametrization::BipedParametrization(const I3Context& context)
-    : I3HalfSphereParametrization(context)
+    : I3SimpleParametrization(context)
 {
 	AddParameter("Boundary", "Segment boundary, in meters (fits segments "
 	    "within this number of meters of the vertex)", 600);
@@ -149,7 +49,7 @@ BipedParametrization::BipedParametrization(const I3Context& context)
 	AddParameter("ShowerSpacing", "Spacing of shower (radiative) "
 	    "sources along the track, in meters. Set to 0 to not include "
 	    "radiative losses.", 15);
-	AddParameter("FitStartingTrack", "Parameterize a track starting at "
+	AddParameter("FitContainedTrack", "Parameterize a track contained at "
 	    "the fit time at the vertex instead of a throughgoing track",
 	    false);
 	AddParameter("StartSlantDepth", "Start of segment boundary in slant "
@@ -164,14 +64,14 @@ void
 BipedParametrization::UpdatePhysicsVariables()
 {
 	// Do the hard work
-	I3HalfSphereParametrization::UpdatePhysicsVariables();
+	I3SimpleParametrization::UpdatePhysicsVariables();
 
 	// Add the hypothesis vector
 	boost::shared_ptr<I3Vector<I3Particle> > sources(new
 	    I3Vector<I3Particle>);
 	BipedHypothesis(hypothesis_->particle, *sources,
 	    boundary_, muonspacing_, showerspacing_,
-	    fit_starting_track_, slantstart_, slantstop_);
+	    fit_contained_track_, slantstart_, slantstop_);
 
 	hypothesis_->nonstd = sources;
 
@@ -186,7 +86,7 @@ BipedParametrization::UpdatePhysicsVariables()
 void
 BipedParametrization::UpdateParameters()
 {
-	I3HalfSphereParametrization::UpdateParameters();
+	I3SimpleParametrization::UpdateParameters();
 	UpdatePhysicsVariables();
 }
 
@@ -234,18 +134,18 @@ BipedParametrization::ApplyChainRule()
 	gradient.SetTime(grad_t);
 	gradient.SetDir(grad_zen, grad_azi);
 
-	I3HalfSphereParametrization::ApplyChainRule();
+	I3SimpleParametrization::ApplyChainRule();
 }
 
 void
 BipedParametrization::Configure()
 {
-	I3HalfSphereParametrization::Configure();
+	I3SimpleParametrization::Configure();
 
 	GetParameter("Boundary", boundary_);
 	GetParameter("MuonSpacing", muonspacing_);
 	GetParameter("ShowerSpacing", showerspacing_);
-	GetParameter("FitStartingTrack", fit_starting_track_);
+	GetParameter("FitContainedTrack", fit_contained_track_);
 	GetParameter("StartSlantDepth", slantstart_);
 	GetParameter("EndSlantDepth", slantstop_);
 }
@@ -253,7 +153,7 @@ BipedParametrization::Configure()
 static void
 BipedHypothesis(I3ParticleConstPtr track,
     std::vector<I3Particle> &hypothesis, double boundary,
-    double muonspacing, double showerspacing, bool startingtrack,
+    double muonspacing, double showerspacing, bool containedtrack,
     double slantstart, double slantstop)
 {
 	double cross_times[6]; // x1, x2, y1, y2, z1, z2
@@ -284,7 +184,7 @@ BipedHypothesis(I3ParticleConstPtr track,
 	entry_t = cross_times[2];
 	exit_t = cross_times[3];
 
-	if (startingtrack) {
+	if (containedtrack) {
 		entry_t = track->GetTime();
 	} else if (slantstart >= 0 && slantstop > slantstart) {
 		// Track equation : r = r0 + v*(t-t0)

@@ -38,9 +38,17 @@ tray.AddModule('I3SimpleFitter', 'MillipedeFit', SeedService='seed',
     Parametrization='millipedeparam', LogLikelihood='bipedllh',
     Minimizer='minuit')
 
+global i
+i=0
+def count(frame):
+	global i 
+	print "ran on", i, "frames"
+	i = i+1
+tray.AddModule(count,"mycounter")
+
 tray.AddModule('I3Writer', 'writer', filename=sys.argv[1])
 tray.AddModule('TrashCan','can')
 print "Got the tray put together, start running..."
-tray.Execute(6)
+tray.Execute()
 tray.Finish()
 
