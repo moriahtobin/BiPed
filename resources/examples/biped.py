@@ -13,8 +13,8 @@ if len(sys.argv) < 3:
 
 files = sys.argv[2:]
 
-muon_service = photonics_service.I3PhotoSplineService('/home/nwhitehorn/photon-tables/emu_abs.fits', '/home/nwhitehorn/photon-tables/emu_prob.fits', 0)
-cascade_service = photonics_service.I3PhotoSplineService('/home/nwhitehorn/photon-tables/ems_spice1_z20_a10.abs.fits', '/home/nwhitehorn/photon-tables/ems_spice1_z20_a10.prob.fits', 0)
+muon_service = photonics_service.I3PhotoSplineService('/net/user/mntobin/IceRec/Tables/emu_abs150.fits', '/net/user/mntobin/IceRec/Tables/emu_prob150.fits', 0)
+cascade_service = photonics_service.I3PhotoSplineService('/net/user/mntobin/IceRec/Tables/ems_spice1_z20_a10_150.abs.fits', '/net/user/mntobin/IceRec/Tables/ems_spice1_z20_a10_150.prob.fits', 0)
 
 tray = I3Tray()
 tray.AddModule('I3Reader', 'reader', FilenameList=files)
@@ -49,6 +49,6 @@ tray.AddModule(count,"mycounter")
 tray.AddModule('I3Writer', 'writer', filename=sys.argv[1])
 tray.AddModule('TrashCan','can')
 print "Got the tray put together, start running..."
-tray.Execute()
+tray.Execute(9)
 tray.Finish()
 
