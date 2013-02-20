@@ -1,5 +1,6 @@
 #include <millipede/Millipede.h>
 
+#include <phys-services/I3Calculator.h>
 #include <lilliput/parametrization/I3SimpleParametrization.h>
 #include <gulliver/I3ParametrizationBase.h>
 #include <gulliver/I3EventHypothesis.h>
@@ -33,9 +34,10 @@ class BipedParametrization : public I3SimpleParametrization {
 };
 
 typedef
-    I3SingleServiceFactory<BipedParametrization, I3SimpleParametrization>
+    I3SingleServiceFactory<BipedParametrization, I3ParametrizationBase>
     BipedParametrizationFactory;
 I3_SERVICE_FACTORY(BipedParametrizationFactory);
+
 
 
 BipedParametrization::BipedParametrization(const I3Context& context)
