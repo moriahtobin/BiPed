@@ -1,7 +1,7 @@
 #include <millipede/Millipede.h>
 
 #include <phys-services/I3Calculator.h>
-#include <lilliput/parametrization/I3HalfSphereParametrization.h>
+#include <lilliput/parametrization/I3SimpleParametrization.h>
 #include <gulliver/I3ParametrizationBase.h>
 #include <gulliver/I3EventHypothesis.h>
 #include <icetray/I3ServiceFactory.h>
@@ -32,7 +32,7 @@ class MuMillipede : public I3MillipedeConditionalModule
 		double slantstop_;
 };
 
-class MuMillipedeParametrization : public I3HalfSphereParametrization {
+class MuMillipedeParametrization : public I3SimpleParametrization {
 	public:
 		MuMillipedeParametrization(const I3Context &);
 		void Configure();
@@ -131,7 +131,7 @@ MuMillipede::Physics(I3FramePtr frame)
 }
 
 MuMillipedeParametrization::MuMillipedeParametrization(const I3Context& context)
-    : I3HalfSphereParametrization(context)
+    : I3SimpleParametrization(context)
 {
 	AddParameter("Boundary", "Segment boundary, in meters (fits segments "
 	    "within this number of meters of the vertex)", 600*I3Units::m);
@@ -157,7 +157,7 @@ void
 MuMillipedeParametrization::UpdatePhysicsVariables()
 {
 	// Do the hard work
-	I3HalfSphereParametrization::UpdatePhysicsVariables();
+	I3SimpleParametrization::UpdatePhysicsVariables();
 
 	// Add the hypothesis vector
 	boost::shared_ptr<I3Vector<I3Particle> > sources(new
@@ -207,7 +207,7 @@ MuMillipedeParametrization::UpdatePhysicsVariables()
 void
 MuMillipedeParametrization::UpdateParameters()
 {
-	I3HalfSphereParametrization::UpdateParameters();
+	I3SimpleParametrization::UpdateParameters();
 	if (starting_cascade_dirstep_ > 0) {
 		par_[par_.size() - 2] = 0;
 		par_[par_.size() - 1] = 0;
@@ -259,7 +259,7 @@ MuMillipedeParametrization::ApplyChainRule()
 	gradient.SetTime(grad_t);
 	gradient.SetDir(grad_zen, grad_azi);
 
-	I3HalfSphereParametrization::ApplyChainRule();
+	I3SimpleParametrization::ApplyChainRule();
 
 	if (starting_cascade_dirstep_ > 0) {
 		// Gradient for initial cascade angular difference to track
@@ -313,7 +313,7 @@ MuMillipedeParametrization::ApplyChainRule()
 void
 MuMillipedeParametrization::Configure()
 {
-	I3HalfSphereParametrization::Configure();
+	I3SimpleParametrization::Configure();
 
 	GetParameter("Boundary", boundary_);
 	GetParameter("MuonSpacing", muonspacing_);
