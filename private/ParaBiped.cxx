@@ -9,8 +9,9 @@
 
 static void BipedHypothesis(I3ParticleConstPtr track,
     std::vector<I3Particle> &hypothesis, double boundary,
-    double muonspacing, double showerspacing, bool containedtrack,
+    double muonspacing, double showerspacing,
     double slantstart, double slantstop);
+
 
 
 class BipedParametrization : public I3SimpleParametrization {
@@ -22,7 +23,7 @@ class BipedParametrization : public I3SimpleParametrization {
 		double muonspacing_;
 		double showerspacing_;
 		std::string name_;
-		bool fit_contained_track_;
+		double starting_cascade_dirstep_;
 		double slantstart_;
 		double slantstop_;
 
@@ -44,16 +45,17 @@ BipedParametrization::BipedParametrization(const I3Context& context)
     : I3SimpleParametrization(context)
 {
 	AddParameter("Boundary", "Segment boundary, in meters (fits segments "
-	    "within this number of meters of the vertex)", 600);
+	    "within this number of meters of the vertex)", 600*I3Units::m);
 	AddParameter("MuonSpacing", "Spacing of muon (ionization) sources "
 	    "along the track, in meters. MUST match source extension in "
-	    "muon tables. Set to 0 to not include ionization sources.", 15);
+	    "muon tables. Set to 0 to not include ionization sources.",
+	    15*I3Units::m);
 	AddParameter("ShowerSpacing", "Spacing of shower (radiative) "
 	    "sources along the track, in meters. Set to 0 to not include "
-	    "radiative losses.", 15);
-	AddParameter("FitContainedTrack", "Parameterize a track contained at "
-	    "the fit time at the vertex instead of a throughgoing track",
-	    false);
+	    "radiative losses.", 15*I3Units::m);
+	AddParameter("StartingCascadeStepSize", "Allow the initial cascade to "
+	    "point in a different direction than the track, moving it in steps "
+	    "this size (starting direction fixed if 0).", 0);
 	AddParameter("StartSlantDepth", "Start of segment boundary in slant "
 	    "depth bins (fits segments in [Xstart,Xend] in detector "
 	    "coordinates). If negative, boundary used instead.", -1);
@@ -72,8 +74,36 @@ BipedParametrization::UpdatePhysicsVariables()
 	boost::shared_ptr<I3Vector<I3Particle> > sources(new
 	    I3Vector<I3Particle>);
 	BipedHypothesis(hypothesis_->particle, *sources,
-	    boundary_, muonspacing_, showerspacing_,
-	    fit_contained_track_, slantstart_, slantstop_);
+	    boundary_, muonspacing_, showerspacing_, slantstart_, slantstop_);
+
+	if (starting_cascade_dirstep_ > 0) {
+		double p0 = par_[par_.size() - 2];
+		double p1 = par_[par_.size() - 1];
+		double seedX_, seedY_, seedZ_;
+		double perp1X_, perp1Y_, perp1Z_;
+		double perp2X_, perp2Y_, perp2Z_;
+
+		const I3Direction& dir = hypothesis_->particle->GetDir();
+
+		seedX_ = dir.GetX();
+		seedY_ = dir.GetY();
+		seedZ_ = dir.GetZ();
+		std::pair<I3Direction,I3Direction> sideways =
+		    I3Calculator::GetTransverseDirections(dir);
+		const I3Direction &perp1 = sideways.first;
+		const I3Direction &perp2 = sideways.second;
+		perp1X_ = perp1.GetX();
+		perp1Y_ = perp1.GetY();
+		perp1Z_ = perp1.GetZ();
+		perp2X_ = perp2.GetX();
+		perp2Y_ = perp2.GetY();
+		perp2Z_ = perp2.GetZ();
+		
+		double newdirx = seedX_ + p0 * perp1X_ + p1 * perp2X_;
+		double newdiry = seedY_ + p0 * perp1Y_ + p1 * perp2Y_;
+		double newdirz = seedZ_ + p0 * perp1Z_ + p1 * perp2Z_;
+		(*sources)[0].SetDir(newdirx, newdiry, newdirz);
+	}
 
 	hypothesis_->nonstd = sources;
 
@@ -89,6 +119,10 @@ void
 BipedParametrization::UpdateParameters()
 {
 	I3SimpleParametrization::UpdateParameters();
+	if (starting_cascade_dirstep_ > 0) {
+		par_[par_.size() - 2] = 0;
+		par_[par_.size() - 1] = 0;
+	}
 	UpdatePhysicsVariables();
 }
 
@@ -137,6 +171,54 @@ BipedParametrization::ApplyChainRule()
 	gradient.SetDir(grad_zen, grad_azi);
 
 	I3SimpleParametrization::ApplyChainRule();
+
+	if (starting_cascade_dirstep_ > 0) {
+		// Gradient for initial cascade angular difference to track
+		// The following code is mostly cribbed from the half-sphere
+		// parametrization
+		I3Particle &gradpart = (*gradsources)[0];
+
+		double p0 = par_[par_.size() - 2];
+		double p1 = par_[par_.size() - 1];
+		double seedX_, seedY_, seedZ_;
+		double perp1X_, perp1Y_, perp1Z_;
+		double perp2X_, perp2Y_, perp2Z_;
+
+		const I3Direction& dir = hypothesis_->particle->GetDir();
+		const I3Direction& graddir = gradpart.GetDir();
+
+		seedX_ = dir.GetX();
+		seedY_ = dir.GetY();
+		seedZ_ = dir.GetZ();
+		std::pair<I3Direction,I3Direction> sideways =
+		    I3Calculator::GetTransverseDirections(dir);
+		const I3Direction &perp1 = sideways.first;
+		const I3Direction &perp2 = sideways.second;
+		perp1X_ = perp1.GetX();
+		perp1Y_ = perp1.GetY();
+		perp1Z_ = perp1.GetZ();
+		perp2X_ = perp2.GetX();
+		perp2Y_ = perp2.GetY();
+		perp2Z_ = perp2.GetZ();
+		
+		double newdirx = seedX_ + p0 * perp1X_ + p1 * perp2X_;
+		double newdiry = seedY_ + p0 * perp1Y_ + p1 * perp2Y_;
+		double newdirz = seedZ_ + p0 * perp1Z_ + p1 * perp2Z_;
+		double r = sqrt(newdirx*newdirx + newdiry*newdiry +
+		    newdirz*newdirz);
+		par_gradient_[par_gradient_.size()-2] = graddir.GetZenith()*
+		    (-newdirz*(newdirx*perp1X_ + newdiry*perp1Y_) +
+		    perp1Z_*(newdirx*newdirx + newdiry*newdiry))/
+		    (hypot(newdirx, newdiry)*r*r) +
+		    graddir.GetAzimuth()*(perp1Y_*newdirx - perp1X_*newdiry)/
+		    (newdirx*newdirx + newdiry*newdiry);
+		par_gradient_[par_gradient_.size()-1] = graddir.GetZenith()*
+		    (-newdirz*(newdirx*perp2X_ + newdiry*perp2Y_) +
+		    perp2Z_*(newdirx*newdirx + newdiry*newdiry))/
+		    (hypot(newdirx, newdiry)*r*r) +
+		    graddir.GetAzimuth()*(perp2Y_*newdirx - perp2X_*newdiry)/
+		    (newdirx*newdirx + newdiry*newdiry);
+	}
 }
 
 void
@@ -147,16 +229,30 @@ BipedParametrization::Configure()
 	GetParameter("Boundary", boundary_);
 	GetParameter("MuonSpacing", muonspacing_);
 	GetParameter("ShowerSpacing", showerspacing_);
-	GetParameter("FitContainedTrack", fit_contained_track_);
+	GetParameter("StartingCascadeStepSize", starting_cascade_dirstep_);
 	GetParameter("StartSlantDepth", slantstart_);
 	GetParameter("EndSlantDepth", slantstop_);
+
+	if (starting_cascade_dirstep_ > 0) {
+		I3FitParameterInitSpecs specs("dir");
+		specs.minval_ = 0;
+		specs.maxval_ = 0;
+		specs.stepsize_ = starting_cascade_dirstep_;
+
+		specs.name_ = "cascadedir1";
+		parspecs_.push_back(specs);
+		
+		specs.name_ = "cascadedir2";
+		parspecs_.push_back(specs);
+
+		par_.resize(parspecs_.size());
+	}
 }
 
 static void
 BipedHypothesis(I3ParticleConstPtr track,
-    std::vector<I3Particle> &hypothesis, double boundary,
-    double muonspacing, double showerspacing, bool containedtrack,
-    double slantstart, double slantstop)
+    std::vector<I3Particle> &hypothesis, double boundary, double muonspacing,
+    double showerspacing, double slantstart, double slantstop)
 {
 	double cross_times[6]; // x1, x2, y1, y2, z1, z2
 	double xspeed, yspeed, zspeed;
@@ -186,8 +282,14 @@ BipedHypothesis(I3ParticleConstPtr track,
 	entry_t = cross_times[2];
 	exit_t = cross_times[3];
 
-	if (containedtrack) {
+	if (track->GetShape() == I3Particle::StartingTrack) {
 		entry_t = track->GetTime();
+	} else if (track->GetShape() == I3Particle::StoppingTrack) {
+		exit_t = track->GetTime();
+	} else if (track->GetShape() == I3Particle::ContainedTrack) {
+		entry_t = track->GetTime();
+		exit_t = track->GetTime() +
+		    track->GetLength()/track->GetSpeed();
 	} else if (slantstart >= 0 && slantstop > slantstart) {
 		// Track equation : r = r0 + v*(t-t0)
 		// For slantstart, (zIceTop - z) = slantstart* cos(zenith),
@@ -212,20 +314,6 @@ BipedHypothesis(I3ParticleConstPtr track,
 		    seg_duration + track->GetTime();
 	}
 	
-	if (muonspacing > 0) for (double t = entry_t; t < exit_t;
-	    t += muonspacing/track->GetSpeed()) {
-		I3Particle muon;
-		muon.SetDir(track->GetDir());
-		muon.SetLength(muonspacing);
-		muon.SetType(track->GetType());
-		muon.SetShape(I3Particle::ContainedTrack);
-		muon.SetSpeed(track->GetSpeed());
-		muon.SetTime(t);
-		muon.SetPos(track->GetX() - xspeed*(t - track->GetTime()),
-			    track->GetY() - yspeed*(t - track->GetTime()),
-			    track->GetZ() - zspeed*(t - track->GetTime()));
-		hypothesis.push_back(muon);
-	}
 	if (showerspacing > 0) for (double t = entry_t; t < exit_t;
 	    t += showerspacing/track->GetSpeed()) {
 		I3Particle shower;
@@ -239,6 +327,21 @@ BipedHypothesis(I3ParticleConstPtr track,
 			      track->GetY() - yspeed*(t - track->GetTime()),
 			      track->GetZ() - zspeed*(t - track->GetTime()));
 		hypothesis.push_back(shower);
+	}
+
+	if (muonspacing > 0) for (double t = entry_t; t < exit_t;
+	    t += muonspacing/track->GetSpeed()) {
+		I3Particle muon;
+		muon.SetDir(track->GetDir());
+		muon.SetLength(muonspacing);
+		muon.SetType(track->GetType());
+		muon.SetShape(I3Particle::ContainedTrack);
+		muon.SetSpeed(track->GetSpeed());
+		muon.SetTime(t);
+		muon.SetPos(track->GetX() - xspeed*(t - track->GetTime()),
+			    track->GetY() - yspeed*(t - track->GetTime()),
+			    track->GetZ() - zspeed*(t - track->GetTime()));
+		hypothesis.push_back(muon);
 	}
 }
 
