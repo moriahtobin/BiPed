@@ -190,18 +190,15 @@ BipedLikelihood::GetLogLikelihood(const I3EventHypothesis &hypo,
 	//log_info("TRIPLETS");
 	// starting number of non-zero entries in this matrix:
 	pen_trip->nnz = 0;
-	//log_info("we be trippin'...on pens");
 	for (unsigned i = 0; i < pen_trip->nrow; i++) {
 		((long *)(pen_trip->i))[pen_trip->nnz] = i;
 		((long *)(pen_trip->j))[pen_trip->nnz] = (i != 0);
 		((double *)(pen_trip->x))[pen_trip->nnz] = 1;
 		pen_trip->nnz++;
 	}
-	//log_info("Done with Pen Tripping LoOp");
 	cholmod_sparse *collapser = cholmod_l_triplet_to_sparse(pen_trip, 0, &c);
 	//log_info("The Collapser");
 	cholmod_l_free_triplet(&pen_trip, &c);
-	//log_info("Free the Triplets from the pens");
 	
 	response_matrix = Millipede::GetResponseMatrix(domCache_, *microSources,
 	    domEfficiency_, muon_p, cascade_p,
@@ -217,21 +214,24 @@ BipedLikelihood::GetLogLikelihood(const I3EventHypothesis &hypo,
 	
 	if (fit_energy) {
 		SolveEnergyLosses(*microSources, &little_response_matrix,
+	//jun 20 replace little with rsp
 		    (gradient == NULL ? NULL : gradients));
 		if (sources->size() == 1)
 			hypo.particle->SetEnergy((*sources)[0].GetEnergy());
 	}
-	//log_info("fit for cascade energy");
+	log_info("fit for cascade energy");
 	
 	llh = Millipede::FitStatistics(domCache_, *microSources, I3Units::MeV,
 	    response_matrix, NULL, &c);
+	//Jun 20, 2013: replaced  Micro w/ src rspmat w/ little_respmatto attempt to remove a matrix mult error and nan llh calls x..
 		log_info("[%f m track, (%f zen mu, %f zen cascade), vertex (%f, %f, %f), E_c %f, azi %f] -> (llh=%f)", trackLength, zen_track, zen_cascade, x_v, y_v, z_v, En_casc, azi_track, llh);
 
 	if (gradient != NULL) {
 		Millipede::LLHGradient(domCache_, *sources, *gradsources,
+	//Jun 20, 2013 replace and resp w/little_resp
 		    I3Units::MeV, weight, &little_response_matrix, gradients, &c);
 		cholmod_l_free_sparse(&gradients, &c);
-		//log_info("We are in the gradient statement");
+		log_info("We are in the gradient statement");
 		if (sources->size() == 1) {
 			// NB: the requested weight is already applied in
 			// the call to LLHGradient()

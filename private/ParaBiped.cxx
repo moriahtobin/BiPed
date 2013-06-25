@@ -97,6 +97,7 @@ BipedParametrization::UpdatePhysicsVariables()
 	hypothesis_->nonstd = sources;
 
 	if (gradient_) {
+		log_info("We have initialized Gradients in Para");
 		boost::shared_ptr<I3Vector<I3Particle> > gradsources(new
 		    I3Vector<I3Particle>);
 		gradsources->resize(sources->size());

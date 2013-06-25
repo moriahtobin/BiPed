@@ -86,23 +86,25 @@ tray.AddModule('I3ParticleForgeModule', 'most_energetic_primary',
 tray.AddModule(Hybridforge,seed='I3MCPrimary',lengthseed='MPEFitEuler_Contained',output='lenSeed')
 
 tray.AddService('BipedParametrizationFactory', 'bipedparam',
-    StepX=2, RelativeBoundsX=[-30.0,30.0],
-    StepY=2, RelativeBoundsY=[-30.0,30.0],
-    StepZ=2, RelativeBoundsZ=[-30.0,30.0],
-    StepAzimuth=0.3, BoundsAzimuth=[-1,7.5],
-    StepZenith=0.05, BoundsZenith=[-0.11,3.25],
-    StepLogL=0.5,
-    StartingCascadeStepSize=0.02,
+    StepX=5, RelativeBoundsX=[-50.0,50.0],
+    StepY=5, RelativeBoundsY=[-50.0,50.0],
+    StepZ=5, RelativeBoundsZ=[-50.0,50.0],
+    StepAzimuth=0.3, RelativeBoundsAzimuth=[-3,3],
+    StepZenith=0.2, RelativeBoundsZenith=[-6,6],
+#    StepAzimuth=0.2, BoundsAzimuth=[-1,7.5],
+#    StepZenith=0.05, BoundsZenith=[-0.11,3.25],
+    StepLogL=0.05,
+#    StartingCascadeStepSize=0.4
 )
 tray.AddService('BipedLikelihoodFactory', 'bipedllh',
     MuonPhotonicsService=muon_service, CascadePhotonicsService=cascade_service_mie,
-    PhotonsPerBin=5, MuonSpacing=1, Pulses='OfflinePulses_NoBorkedSLC')
+    PhotonsPerBin=5, MuonSpacing=5, Pulses='OfflinePulses_NoBorkedSLC')
 tray.AddService('I3GSLRandomServiceFactory','I3RandomService')
 tray.AddService('I3GulliverMinuit2Factory', 'minuit',
     MaxIterations=3000, Algorithm='MIGRAD', MinuitStrategy=2, 
-    WithGradients=True,
+#    WithGradients=True,
     CheckGradient=True,
-    Tolerance=0.05)
+    Tolerance=0.0001)
 tray.AddService('I3BasicSeedServiceFactory', 'seed', 
     FirstGuess='lenSeed',
 #    FirstGuess='MPEFitEuler_Contained',
@@ -124,6 +126,6 @@ tray.AddModule(count,"mycounter")
 tray.AddModule('I3Writer', 'writer', filename=sys.argv[1])
 tray.AddModule('TrashCan','can')
 print "Got the tray put together, start running..."
-tray.Execute()
+tray.Execute(12)
 tray.Finish()
 
