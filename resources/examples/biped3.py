@@ -1,11 +1,9 @@
 #!/usr/bin/env python
-#Hello Laura :)
 from I3Tray import *
 import sys
 from icecube import icetray, dataio, dataclasses, photonics_service, gulliver
 from icecube import millipede, wavedeform
 load('gulliver-modules')
-load('BiPed')
 load('WaveCalibrator')
 load('libparticleforge')
 
@@ -16,9 +14,11 @@ if len(sys.argv) < 3:
 files = sys.argv[2:]
 
 muon_service = photonics_service.I3PhotoSplineService('/net/user/mntobin/IceRec/Tables/ZeroLengthMuons_z20_a10_150.abs.fits', '/net/user/mntobin/IceRec/Tables/ZeroLengthMuons_z20_a10_150.prob.fits', 0)
+#muon_service = photonics_service.I3PhotoSplineService('/net/user/mntobin/IceRec/Tables/emu_abs150.fits', '/net/user/mntobin/IceRec/Tables/emu_prob150.fits', 0)
 #cascade_service = photonics_service.I3PhotoSplineService('/net/user/mntobin/IceRec/Tables/ems_spice1_z20_a10_150.abs.fits', '/net/user/mntobin/IceRec/Tables/ems_spice1_z20_a10_150.prob.fits', 0)
 cascade_service_mie = photonics_service.I3PhotoSplineService('/net/user/mntobin/IceRec/Tables/ems_mie_z20_a10_150.abs.fits', '/net/user/mntobin/IceRec/Tables/ems_mie_z20_a10_150.prob.fits', 0)
 print "Yum Photonics Tables!"
+
 tray = I3Tray()
 tray.AddModule('I3Reader', 'reader', FilenameList=files)
 #fixup code from JVS
@@ -45,7 +45,6 @@ tray.AddModule(wavedeform.AddMissingTimeWindow,"PulseTimeRange")
 def copytimerange(frame):
 	frame['OfflinePulses_NoBorkedSLCTimeRange']=frame['OfflinePulsesTimeRange']
 tray.AddModule(copytimerange, "CopyTimeRange")
-
 
 def Hybridforge(frame, seed, lengthseed, output):
     if frame.Has(seed):
@@ -83,35 +82,50 @@ tray.AddModule('I3ParticleForgeModule', 'most_energetic_primary',
         # MOSTENERGETICCASCADE, MOSTENERGETICPRIMARY, MOSTENERGETICTRACK, REFERENCECASCADE_DEPOSITED, REFERENCECASCADE_VISIBLE
     output=       'I3MCPrimary')
 
-tray.AddModule(Hybridforge,seed='I3MCPrimary',lengthseed='MPEFitEuler_Contained',output='lenSeed')
+tray.AddModule(Hybridforge,seed='SPEFitSingle_DC',lengthseed='MPEFitEuler_Contained',output='lenSeed')
 
-tray.AddService('BipedParametrizationFactory', 'bipedparam',
+
+tray.AddService('MuMillipedeParametrizationFactory', 'MuMillipede',
+    StepT=5, 
     StepX=5, RelativeBoundsX=[-50.0,50.0],
     StepY=5, RelativeBoundsY=[-50.0,50.0],
     StepZ=5, RelativeBoundsZ=[-50.0,50.0],
-    StepAzimuth=0.3, RelativeBoundsAzimuth=[-3,3],
-    StepZenith=0.2, RelativeBoundsZenith=[-6,6],
-#    StepAzimuth=0.2, BoundsAzimuth=[-1,7.5],
-#    StepZenith=0.05, BoundsZenith=[-0.11,3.25],
-    StepLogL=0.05, BoundsLogL=[0,4],
-#    StartingCascadeStepSize=0.4
-)
-tray.AddService('BipedLikelihoodFactory', 'bipedllh',
+    StepAzimuth=0.3, BoundsAzimuth=[-0.61,7.0],
+    StepZenith=0.2, BoundsZenith=[-0.41,3.55],
+    StepLogL=0.1,
+    MuonSpacing=3, ShowerSpacing=100000000, StartingCascadeStepSize=0.4)
+tray.AddService('MillipedeLikelihoodFactory', 'Mil-llh',
     MuonPhotonicsService=muon_service, CascadePhotonicsService=cascade_service_mie,
-    PhotonsPerBin=5, MuonSpacing=3, Pulses='OfflinePulses_NoBorkedSLC')
+    PhotonsPerBin=5, Pulses='OfflinePulses_NoBorkedSLC')
 tray.AddService('I3GSLRandomServiceFactory','I3RandomService')
 tray.AddService('I3GulliverMinuit2Factory', 'minuit',
-    MaxIterations=3000, Algorithm='MIGRAD', MinuitStrategy=2, 
+    MaxIterations=3000, 
+    Algorithm="SIMPLEX", MinuitPrintLevel=-1,
+#    Algorithm='MIGRAD', MinuitStrategy=2, 
 #    WithGradients=True,
-    CheckGradient=True,
-    Tolerance=0.0001)
+#    CheckGradient=True,
+#    Tolerance=0.0001)
+    Tolerance=0.000001)
+
+#tray.AddModule('I3ParticleForgeModule', 'LowEn',
+ #   Shape=        'ContainedTrack',
+ #   Type=        'MC',
+#    Time=        'MPEFitEuler_Contained',
+#    Position=     'MPEFitEuler_Contained',
+#    Direction=    'MPEFitEuler_Contained',
+#    Speed= 'MPEFitEuler_Contained',
+ #   Energy=       25, #monopod?
+ #   MCTree=       'I3MCTree',
+ #   MCMethod=     'MOSTENERGETICPRIMARY', # this is the method you have to choose, can be the following:
+        # MOSTENERGETICCASCADE, MOSTENERGETICPRIMARY, MOSTENERGETICTRACK, REFERENCECASCADE_DEPOSITED, REFERENCECASCADE_VISIBLE
+#    output=       'NuSeed')
+
 tray.AddService('I3BasicSeedServiceFactory', 'seed', 
-    FirstGuess='lenSeed',
-#    FirstGuess='MPEFitEuler_Contained',
-# FirstGuess='I3MCPrimary',
+   FirstGuess='lenSeed',
+# FirstGuess='MPEFitEuler_Contained',
     TimeShiftType='TNone')
-tray.AddModule('I3SimpleFitter', 'BiPedHardCodeFit', SeedService='seed',
-    Parametrization='bipedparam', LogLikelihood='bipedllh',
+tray.AddModule('I3SimpleFitter', 'ActualBipedInMillipedeFit', SeedService='seed',
+    Parametrization='MuMillipede', LogLikelihood='Mil-llh',
     Minimizer='minuit')
 
 

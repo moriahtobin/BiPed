@@ -213,8 +213,8 @@ BipedLikelihood::GetLogLikelihood(const I3EventHypothesis &hypo,
 	//log_info("Guess What's delicious guys? Little Matrices");
 	
 	if (fit_energy) {
-		SolveEnergyLosses(*microSources, &little_response_matrix,
-	//jun 20 replace little with rsp
+		SolveEnergyLosses(*sources, &little_response_matrix,
+	//Needs to either be micro and resp or src and little NOT micro and little
 		    (gradient == NULL ? NULL : gradients));
 		if (sources->size() == 1)
 			hypo.particle->SetEnergy((*sources)[0].GetEnergy());
@@ -223,7 +223,6 @@ BipedLikelihood::GetLogLikelihood(const I3EventHypothesis &hypo,
 	
 	llh = Millipede::FitStatistics(domCache_, *microSources, I3Units::MeV,
 	    response_matrix, NULL, &c);
-	//Jun 20, 2013: replaced  Micro w/ src rspmat w/ little_respmatto attempt to remove a matrix mult error and nan llh calls x..
 		log_info("[%f m track, (%f zen mu, %f zen cascade), vertex (%f, %f, %f), E_c %f, azi %f] -> (llh=%f)", trackLength, zen_track, zen_cascade, x_v, y_v, z_v, En_casc, azi_track, llh);
 
 	if (gradient != NULL) {
@@ -262,6 +261,7 @@ BipedLikelihood::GetLogLikelihood(const I3EventHypothesis &hypo,
 	}
 
 	cholmod_l_free_sparse(&response_matrix, &c);
+	//The above may actually need to be the little matrix...
 	//log_info("We just increased some values, so let's give 'em to the llh");
 	return llh;
 }

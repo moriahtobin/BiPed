@@ -101,6 +101,15 @@ BipedParametrization::UpdatePhysicsVariables()
 		boost::shared_ptr<I3Vector<I3Particle> > gradsources(new
 		    I3Vector<I3Particle>);
 		gradsources->resize(sources->size());
+		for (unsigned i = 0; i < gradsources->size(); ++i) { 
+	                        I3Particle &gradpart = (*gradsources)[i]; 
+	                        gradpart.SetPos(0., 0., 0.); 
+	                        gradpart.SetDir(0., 0.); 
+	                        gradpart.SetTime(0.); 
+	                        gradpart.SetEnergy(0.); 
+	                        gradpart.SetLength(0.); 
+	                        gradpart.SetSpeed(0.); 
+	                }
 		gradient_->nonstd = gradsources;
 	}
 }
@@ -157,7 +166,7 @@ BipedParametrization::ApplyChainRule()
 		zenith_xyz += gradpart.GetX()*cos(theta)*cos(phi);
 		azimuth_xyz += -gradpart.GetX()*sin(theta)*sin(phi);
 		zenith_xyz += gradpart.GetY()*cos(theta)*sin(phi);
-		azimuth_xyz += gradpart.GetY()*cos(theta)*cos(phi);
+		azimuth_xyz += gradpart.GetY()*sin(theta)*cos(phi);
 		zenith_xyz += -gradpart.GetZ()*sin(theta);
 
 		// Shower (X, Y, Z) is track *minus* c_(x y z) t
