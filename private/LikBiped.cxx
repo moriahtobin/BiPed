@@ -158,29 +158,36 @@ BipedLikelihood::GetLogLikelihood(const I3EventHypothesis &hypo,
 	double zen_cascade = (*sources)[0].GetZenith();
 	double zen_track = (*sources)[1].GetZenith();
 	double azi_track = (*sources)[1].GetAzimuth();
-	double En_casc = (*sources)[0].GetEnergy();
+	double azi_casc = (*sources)[0].GetAzimuth();
 	double x_v = (*sources)[0].GetX();
 	double y_v = (*sources)[0].GetY();
 	double z_v = (*sources)[0].GetZ();
+	double check = trackLength - 0.5*muonspacing_;
+	double d=0;
 
 	// space cascades closely to simulate min ionizing muon
 	I3Particle PrevParticle = (*sources)[1]; //start with hypothsis muon
+	PrevParticle.SetLength(muonspacing_);
+	microSources->push_back(PrevParticle);
 	//log_info("%d is the particle type of PrevParticle for Muon Looping", PrevParticle.GetType());
 	//log_info("Start Yo Particles");
 	I3Particle NextParticle = PrevParticle;
-	//log_info("There's Some Sweet LoOping Happening Here");
-	for (double d=0; d<trackLength ; d = d+muonspacing_){
-		//log_info("in zeh 4 loopz");
+//	for (double d=0; d < trackLength; d = d+muonspacing_){
+//	for (double d=0; d<check; d = d+muonspacing_){
+	for (; d<check; d = d+muonspacing_){
 		//log_info("%f is the length of our Muon now", d);
 		//log_info("%f is the total length of our muon", trackLength);
 		//log_info("%f is the muon spacing", muonspacing_); 
 		NextParticle.SetPos(PrevParticle.ShiftAlongTrack(muonspacing_));
-		//log_info("Where is my next particle T.T");
 		microSources->push_back(NextParticle);
-		//log_info("Push that Particle Back");
 		PrevParticle = NextParticle;
 	}
-	log_info("We have finished defining Muon test points");
+
+	if (d > muonspacing_){
+		(*sources)[1].SetLength(d*I3Units::m);
+	}
+
+	double MuLen = (*sources)[1].GetLength();
 
 	// Make a matrix of ones and zeros for collapsing stuff
 	// (a triplet is: matrix position i,j; and value x)
@@ -213,24 +220,29 @@ BipedLikelihood::GetLogLikelihood(const I3EventHypothesis &hypo,
 	//log_info("Guess What's delicious guys? Little Matrices");
 	
 	if (fit_energy) {
+		log_info("fit for cascade energy");
 		SolveEnergyLosses(*sources, &little_response_matrix,
 	//Needs to either be micro and resp or src and little NOT micro and little
 		    (gradient == NULL ? NULL : gradients));
 		if (sources->size() == 1)
 			hypo.particle->SetEnergy((*sources)[0].GetEnergy());
 	}
-	log_info("fit for cascade energy");
+
+	double En_casc = (*sources)[0].GetEnergy();
+	double En_mu = (*sources)[1].GetEnergy();
 	
 	llh = Millipede::FitStatistics(domCache_, *microSources, I3Units::MeV,
 	    response_matrix, NULL, &c);
-		log_info("[%f m track, (%f zen mu, %f zen cascade), vertex (%f, %f, %f), E_c %f, azi %f] -> (llh=%f)", trackLength, zen_track, zen_cascade, x_v, y_v, z_v, En_casc, azi_track, llh);
+		log_info("[%f m mu, seed %f m mu, (E_c %f, E_m %f), vertex (%f, %f, %f)] + ", MuLen, trackLength, En_casc, En_mu, x_v, y_v, z_v);
+		log_info("[ (%f zen_mu, %f zen_casc), (%f azi_mu, %f azi_casc)] -> (llh=%f)", zen_track, zen_cascade, azi_track, azi_casc, llh);
 
 	if (gradient != NULL) {
 		Millipede::LLHGradient(domCache_, *sources, *gradsources,
-	//Jun 20, 2013 replace and resp w/little_resp
 		    I3Units::MeV, weight, &little_response_matrix, gradients, &c);
-		cholmod_l_free_sparse(&gradients, &c);
+	//Jun 20, 2013 replace and resp w/little_resp
+	//SOMETHING IN THE ABOVE STATEMENT IS CRYING OUT TO CHOLMOD
 		log_info("We are in the gradient statement");
+		cholmod_l_free_sparse(&gradients, &c);
 		if (sources->size() == 1) {
 			// NB: the requested weight is already applied in
 			// the call to LLHGradient()

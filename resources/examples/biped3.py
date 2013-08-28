@@ -56,8 +56,8 @@ def Hybridforge(frame, seed, lengthseed, output):
 #        else:
 #            energy = source.energy
         forged_particle = dataclasses.I3Particle()
-#        forged_particle.energy = source.energy
-	forged_particle.length = lseed.length
+        forged_particle.energy = source.energy
+	forged_particle.length = source.energy*5.0
         forged_particle.dir.set_direction(source.dir.zenith, source.dir.azimuth)
         forged_particle.pos.x = source.pos.x
         forged_particle.pos.y = source.pos.y
@@ -92,20 +92,23 @@ tray.AddService('MuMillipedeParametrizationFactory', 'MuMillipede',
     StepZ=5, RelativeBoundsZ=[-50.0,50.0],
     StepAzimuth=0.3, BoundsAzimuth=[-0.61,7.0],
     StepZenith=0.2, BoundsZenith=[-0.41,3.55],
-    StepLogL=0.1,
+    StepLogE=0.05, BoundsLogE=[0,4],
+#    StepLogL=0.1,
     MuonSpacing=3, ShowerSpacing=100000000, StartingCascadeStepSize=0.4)
 tray.AddService('MillipedeLikelihoodFactory', 'Mil-llh',
     MuonPhotonicsService=muon_service, CascadePhotonicsService=cascade_service_mie,
     PhotonsPerBin=5, Pulses='OfflinePulses_NoBorkedSLC')
 tray.AddService('I3GSLRandomServiceFactory','I3RandomService')
 tray.AddService('I3GulliverMinuit2Factory', 'minuit',
-    MaxIterations=3000, 
-    Algorithm="SIMPLEX", MinuitPrintLevel=-1,
-#    Algorithm='MIGRAD', MinuitStrategy=2, 
-#    WithGradients=True,
-#    CheckGradient=True,
+    MaxIterations=1000, 
+#    Algorithm="SIMPLEX", MinuitPrintLevel=-1,
+    Algorithm='MIGRAD', MinuitStrategy=0, 
+    WithGradients=True,
+    FlatnessCheck=True,
+    IgnoreEDM=True,
+    CheckGradient=False,
 #    Tolerance=0.0001)
-    Tolerance=0.000001)
+    Tolerance=0.1)
 
 #tray.AddModule('I3ParticleForgeModule', 'LowEn',
  #   Shape=        'ContainedTrack',

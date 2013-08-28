@@ -57,8 +57,8 @@ def Hybridforge(frame, seed, lengthseed, output):
 #        else:
 #            energy = source.energy
         forged_particle = dataclasses.I3Particle()
-#        forged_particle.energy = source.energy
-	forged_particle.length = lseed.length
+        forged_particle.energy = source.energy
+	forged_particle.length = (5.0*source.energy + lseed.length)/2.0
         forged_particle.dir.set_direction(source.dir.zenith, source.dir.azimuth)
         forged_particle.pos.x = source.pos.x
         forged_particle.pos.y = source.pos.y
@@ -86,14 +86,16 @@ tray.AddModule('I3ParticleForgeModule', 'most_energetic_primary',
 tray.AddModule(Hybridforge,seed='I3MCPrimary',lengthseed='MPEFitEuler_Contained',output='lenSeed')
 
 tray.AddService('BipedParametrizationFactory', 'bipedparam',
+    StepLogL=0.05, BoundsLogL=[0,3],
+    StepT=5,
     StepX=5, RelativeBoundsX=[-50.0,50.0],
     StepY=5, RelativeBoundsY=[-50.0,50.0],
     StepZ=5, RelativeBoundsZ=[-50.0,50.0],
     StepAzimuth=0.3, RelativeBoundsAzimuth=[-3,3],
     StepZenith=0.2, RelativeBoundsZenith=[-6,6],
+    StepLogE=0.05, BoundsLogE=[0,4],
 #    StepAzimuth=0.2, BoundsAzimuth=[-1,7.5],
 #    StepZenith=0.05, BoundsZenith=[-0.11,3.25],
-    StepLogL=0.05, BoundsLogL=[0,4],
 #    StartingCascadeStepSize=0.4
 )
 tray.AddService('BipedLikelihoodFactory', 'bipedllh',
@@ -102,8 +104,12 @@ tray.AddService('BipedLikelihoodFactory', 'bipedllh',
 tray.AddService('I3GSLRandomServiceFactory','I3RandomService')
 tray.AddService('I3GulliverMinuit2Factory', 'minuit',
     MaxIterations=3000, Algorithm='MIGRAD', MinuitStrategy=2, 
+    WithGradients=True,
+    FlatnessCheck=True,
+    IgnoreEDM=True,
+    CheckGradient=False,
 #    WithGradients=True,
-    CheckGradient=True,
+#    CheckGradient=True,
     Tolerance=0.0001)
 tray.AddService('I3BasicSeedServiceFactory', 'seed', 
     FirstGuess='lenSeed',
