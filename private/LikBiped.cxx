@@ -141,7 +141,7 @@ BipedLikelihood::GetLogLikelihood(const I3EventHypothesis &hypo,
 	I3VectorI3ParticlePtr gradsources;
 	if (gradient != NULL) {
 		gradsources = ExtractHypothesis(*gradient);
-		assert(sources->size() == gradsources->size());
+//		assert(sources->size() == gradsources->size());
 	}
 // Make a vector of particles out of the cascade & muon:
 	// cascade is the starting cascade, and muon is replaced
@@ -168,13 +168,13 @@ BipedLikelihood::GetLogLikelihood(const I3EventHypothesis &hypo,
 	// space cascades closely to simulate min ionizing muon
 	I3Particle PrevParticle = (*sources)[1]; //start with hypothsis muon
 	PrevParticle.SetLength(muonspacing_);
-	microSources->push_back(PrevParticle);
 	//log_info("%d is the particle type of PrevParticle for Muon Looping", PrevParticle.GetType());
 	//log_info("Start Yo Particles");
 	I3Particle NextParticle = PrevParticle;
-//	for (double d=0; d < trackLength; d = d+muonspacing_){
+	microSources->push_back(PrevParticle);
+	for (; d < trackLength; d = d+muonspacing_){
 //	for (double d=0; d<check; d = d+muonspacing_){
-	for (; d<check; d = d+muonspacing_){
+//	for (; d<check; d = d+muonspacing_){
 		//log_info("%f is the length of our Muon now", d);
 		//log_info("%f is the total length of our muon", trackLength);
 		//log_info("%f is the muon spacing", muonspacing_); 
@@ -237,6 +237,7 @@ BipedLikelihood::GetLogLikelihood(const I3EventHypothesis &hypo,
 		log_info("[ (%f zen_mu, %f zen_casc), (%f azi_mu, %f azi_casc)] -> (llh=%f)", zen_track, zen_cascade, azi_track, azi_casc, llh);
 
 	if (gradient != NULL) {
+		assert(sources->size() == gradsources->size());
 		Millipede::LLHGradient(domCache_, *sources, *gradsources,
 		    I3Units::MeV, weight, &little_response_matrix, gradients, &c);
 	//Jun 20, 2013 replace and resp w/little_resp

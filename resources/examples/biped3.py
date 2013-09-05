@@ -82,8 +82,8 @@ tray.AddModule('I3ParticleForgeModule', 'most_energetic_primary',
         # MOSTENERGETICCASCADE, MOSTENERGETICPRIMARY, MOSTENERGETICTRACK, REFERENCECASCADE_DEPOSITED, REFERENCECASCADE_VISIBLE
     output=       'I3MCPrimary')
 
-tray.AddModule(Hybridforge,seed='SPEFitSingle_DC',lengthseed='MPEFitEuler_Contained',output='lenSeed')
-
+#tray.AddModule(Hybridforge,seed='SPEFitSingle_DC',lengthseed='MPEFitEuler_Contained',output='lenSeed')
+tray.AddModule(Hybridforge,seed='Monopod',lengthseed='MPEFitEuler_Contained',output='lenSeed')
 
 tray.AddService('MuMillipedeParametrizationFactory', 'MuMillipede',
     StepT=5, 
@@ -93,7 +93,7 @@ tray.AddService('MuMillipedeParametrizationFactory', 'MuMillipede',
     StepAzimuth=0.3, BoundsAzimuth=[-0.61,7.0],
     StepZenith=0.2, BoundsZenith=[-0.41,3.55],
     StepLogE=0.05, BoundsLogE=[0,4],
-#    StepLogL=0.1,
+    StepLogL=0.05, BoundsLogL=[0,3],
     MuonSpacing=3, ShowerSpacing=100000000, StartingCascadeStepSize=0.4)
 tray.AddService('MillipedeLikelihoodFactory', 'Mil-llh',
     MuonPhotonicsService=muon_service, CascadePhotonicsService=cascade_service_mie,
@@ -108,7 +108,7 @@ tray.AddService('I3GulliverMinuit2Factory', 'minuit',
     IgnoreEDM=True,
     CheckGradient=False,
 #    Tolerance=0.0001)
-    Tolerance=0.1)
+    Tolerance=0.005)
 
 #tray.AddModule('I3ParticleForgeModule', 'LowEn',
  #   Shape=        'ContainedTrack',
