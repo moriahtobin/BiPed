@@ -58,7 +58,7 @@ def Hybridforge(frame, seed, lengthseed, output):
 #            energy = source.energy
         forged_particle = dataclasses.I3Particle()
         forged_particle.energy = source.energy
-	forged_particle.length = (5.0*source.energy + lseed.length)/2.0
+	forged_particle.length = (4.5*source.energy + lseed.length)/2.0
         forged_particle.dir.set_direction(source.dir.zenith, source.dir.azimuth)
         forged_particle.pos.x = source.pos.x
         forged_particle.pos.y = source.pos.y
@@ -86,7 +86,7 @@ tray.AddModule('I3ParticleForgeModule', 'most_energetic_primary',
 tray.AddModule(Hybridforge,seed='I3MCPrimary',lengthseed='MPEFitEuler_Contained',output='lenSeed')
 
 tray.AddService('BipedParametrizationFactory', 'bipedparam',
-    StepT=5,
+    StepT=0,
     StepX=5, RelativeBoundsX=[-50.0,50.0],
     StepY=5, RelativeBoundsY=[-50.0,50.0],
     StepZ=5, RelativeBoundsZ=[-50.0,50.0],
@@ -110,7 +110,7 @@ tray.AddService('I3GulliverMinuit2Factory', 'minuit',
     CheckGradient=False,
 #    WithGradients=True,
 #    CheckGradient=True,
-    Tolerance=0.005)
+    Tolerance=0.1)
 tray.AddService('I3BasicSeedServiceFactory', 'seed', 
     FirstGuess='lenSeed',
 #    FirstGuess='MPEFitEuler_Contained',

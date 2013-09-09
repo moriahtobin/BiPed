@@ -162,12 +162,11 @@ BipedLikelihood::GetLogLikelihood(const I3EventHypothesis &hypo,
 	double x_v = (*sources)[0].GetX();
 	double y_v = (*sources)[0].GetY();
 	double z_v = (*sources)[0].GetZ();
-	double check = trackLength - 0.5*muonspacing_;
+//	double check = trackLength - 0.5*muonspacing_;
 	double d=0;
 
 	// space cascades closely to simulate min ionizing muon
 	I3Particle PrevParticle = (*sources)[1]; //start with hypothsis muon
-	PrevParticle.SetLength(muonspacing_);
 	//log_info("%d is the particle type of PrevParticle for Muon Looping", PrevParticle.GetType());
 	//log_info("Start Yo Particles");
 	I3Particle NextParticle = PrevParticle;
@@ -183,11 +182,11 @@ BipedLikelihood::GetLogLikelihood(const I3EventHypothesis &hypo,
 		PrevParticle = NextParticle;
 	}
 
-	if (d > muonspacing_){
-		(*sources)[1].SetLength(d*I3Units::m);
-	}
+//	if (d > muonspacing_){
+//		(*sources)[1].SetLength(d*I3Units::m);
+//	}
 
-	double MuLen = (*sources)[1].GetLength();
+//	double MuLen = (*sources)[1].GetLength();
 
 	// Make a matrix of ones and zeros for collapsing stuff
 	// (a triplet is: matrix position i,j; and value x)
@@ -221,7 +220,7 @@ BipedLikelihood::GetLogLikelihood(const I3EventHypothesis &hypo,
 	
 	if (fit_energy) {
 		log_info("fit for cascade energy");
-		SolveEnergyLosses(*sources, &little_response_matrix,
+		SolveEnergyLosses(*microSources, response_matrix,
 	//Needs to either be micro and resp or src and little NOT micro and little
 		    (gradient == NULL ? NULL : gradients));
 		if (sources->size() == 1)
@@ -233,7 +232,7 @@ BipedLikelihood::GetLogLikelihood(const I3EventHypothesis &hypo,
 	
 	llh = Millipede::FitStatistics(domCache_, *microSources, I3Units::MeV,
 	    response_matrix, NULL, &c);
-		log_info("[%f m mu, seed %f m mu, (E_c %f, E_m %f), vertex (%f, %f, %f)] + ", MuLen, trackLength, En_casc, En_mu, x_v, y_v, z_v);
+		log_info("[%f m mu, (E_c %f, E_m %f), vertex (%f, %f, %f)] + ", trackLength, En_casc, En_mu, x_v, y_v, z_v);
 		log_info("[ (%f zen_mu, %f zen_casc), (%f azi_mu, %f azi_casc)] -> (llh=%f)", zen_track, zen_cascade, azi_track, azi_casc, llh);
 
 	if (gradient != NULL) {

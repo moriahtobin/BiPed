@@ -100,7 +100,7 @@ tray.AddService('I3GulliverMinuit2Factory', 'minuit',
 #    output=       'NuSeed')
 
 tray.AddService('I3BasicSeedServiceFactory', 'seed', 
-   FirstGuess='lenSeed',
+   FirstGuess='LongMuon',
 # FirstGuess='MPEFitEuler_Contained',
     TimeShiftType='TNone')
 tray.AddModule('I3SimpleFitter', 'ActualBipedInMillipedeFit', SeedService='seed',
