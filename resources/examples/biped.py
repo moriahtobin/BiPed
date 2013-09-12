@@ -132,6 +132,6 @@ tray.AddModule(count,"mycounter")
 tray.AddModule('I3Writer', 'writer', filename=sys.argv[1])
 tray.AddModule('TrashCan','can')
 print "Got the tray put together, start running..."
-tray.Execute(15)
+tray.Execute()
 tray.Finish()
 
