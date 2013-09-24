@@ -266,8 +266,8 @@ static void
 BipedHypothesis(I3ParticleConstPtr track,
     std::vector<I3Particle> &hypothesis, double boundary, double muonspacing)
 {
-//	double MuonEnergy = track->getLength()/5.00;
-//	double CascEnergy = track->getEnergy()-MuonEnergy;
+	double MuonEnergy = track->GetLength()/4.50;
+	double CascEnergy = track->GetEnergy()-MuonEnergy;
 	I3Particle muon, cascade;
 	muon.SetType(I3Particle::MuMinus);
 	muon.SetShape(I3Particle::ContainedTrack);
@@ -276,15 +276,14 @@ BipedHypothesis(I3ParticleConstPtr track,
 	muon.SetPos(track->GetX(),track->GetY(),track->GetZ());
 	muon.SetTime(track->GetTime());
 	muon.SetSpeed(track->GetSpeed());
-//	muon.SetEnergy(MuonEnergy);
+	muon.SetEnergy(MuonEnergy);
 	cascade.SetType(I3Particle::Hadrons);
 	cascade.SetShape(I3Particle::Cascade);
 	cascade.SetDir(track->GetDir());
 	cascade.SetPos(track->GetX(),track->GetY(),track->GetZ());
 	cascade.SetTime(track->GetTime());
 	cascade.SetSpeed(track->GetSpeed());
-//	cascade.SetEnergy(CascEnergy);
-//	cascade.SetEnergy(track->GetLength()/50.00);
+	cascade.SetEnergy(CascEnergy);
 	hypothesis.push_back(cascade);
 	hypothesis.push_back(muon);
 }

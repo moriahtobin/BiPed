@@ -99,7 +99,8 @@ def BiPedChooser(frame, winner="",seedlist=[]):
 
 
 
-#Make the Seeds:
+#Seeds with most common muon/cascade energy sharing patterns (most energy in muon vs. equal sharing between muon and cascade)
+#llh does not change for length minimization with StepL < MuonSpacing, so we want our seed to be as close to the actual value as possible
 tray.AddModule(Hybridforge,seed='Monopod', factor=4.5, output='LongMuon')
 tray.AddModule(Hybridforge,seed='Monopod',factor=2.3, output='EqualMuon')
 
@@ -138,13 +139,13 @@ tray.AddService('MillipedeLikelihoodFactory', 'Mil-llh',
 #Minimizers:
 tray.AddService('I3GSLRandomServiceFactory','I3RandomService')
 tray.AddService('I3GulliverMinuit2Factory', 'NoEDM',
-    MaxIterations=3000, 
+    MaxIterations=1000, 
     Algorithm='MIGRAD', MinuitStrategy=0, 
     WithGradients=True,
     IgnoreEDM=True,
     FlatnessCheck=True)
 tray.AddService('I3GulliverMinuit2Factory', 'minuit',
-    MaxIterations=3000, 
+    MaxIterations=1000, 
     Algorithm='MIGRAD', MinuitStrategy=0, 
     WithGradients=True,
     IgnoreEDM=True,

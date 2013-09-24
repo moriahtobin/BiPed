@@ -220,7 +220,7 @@ BipedLikelihood::GetLogLikelihood(const I3EventHypothesis &hypo,
 	
 	if (fit_energy) {
 		log_info("fit for cascade energy");
-		SolveEnergyLosses(*microSources, response_matrix,
+		SolveEnergyLosses(*sources, &little_response_matrix,
 	//Needs to either be micro and resp or src and little NOT micro and little
 		    (gradient == NULL ? NULL : gradients));
 		if (sources->size() == 1)
@@ -230,13 +230,13 @@ BipedLikelihood::GetLogLikelihood(const I3EventHypothesis &hypo,
 	double En_casc = (*sources)[0].GetEnergy();
 	double En_mu = (*sources)[1].GetEnergy();
 	
-	llh = Millipede::FitStatistics(domCache_, *microSources, I3Units::MeV,
-	    response_matrix, NULL, &c);
+	llh = Millipede::FitStatistics(domCache_, *sources, I3Units::MeV,
+	    &little_response_matrix, NULL, &c);
 		log_info("[%f m mu, (E_c %f, E_m %f), vertex (%f, %f, %f)] + ", trackLength, En_casc, En_mu, x_v, y_v, z_v);
 		log_info("[ (%f zen_mu, %f zen_casc), (%f azi_mu, %f azi_casc)] -> (llh=%f)", zen_track, zen_cascade, azi_track, azi_casc, llh);
 
 	if (gradient != NULL) {
-		assert(sources->size() == gradsources->size());
+//		assert(sources->size() == gradsources->size());
 		Millipede::LLHGradient(domCache_, *sources, *gradsources,
 		    I3Units::MeV, weight, &little_response_matrix, gradients, &c);
 	//Jun 20, 2013 replace and resp w/little_resp
