@@ -39,7 +39,7 @@ def Hybridforge(frame, seed,factor, output):
         forged_particle = dataclasses.I3Particle()
         forged_particle.energy = source.energy
 	forged_particle.length = factor*source.energy
-        forged_particle.dir.set_direction(source.dir.zenith, source.dir.azimuth)
+        forged_particle.dir = source.dir
         forged_particle.pos.x = source.pos.x
         forged_particle.pos.y = source.pos.y
         forged_particle.pos.z = source.pos.z
@@ -68,8 +68,10 @@ tray.AddModule('I3ParticleForgeModule', 'most_energetic_primary',
 
 #Seeds with most common muon/cascade energy sharing patterns (most energy in muon vs. equal sharing between muon and cascade)
 #llh does not change for length minimization with StepL < MuonSpacing, so we want our seed to be as close to the actual value as possible
-tray.AddModule(Hybridforge,seed='Monopod',factor=4.5,output='LongMuon')
-tray.AddModule(Hybridforge,seed='Monopod',factor=2.3,output='EqualMuon')
+tray.AddModule(Hybridforge,seed='MonopodFit',factor=4.5,output='LongMuon')
+tray.AddModule(Hybridforge,seed='MonopodFit',factor=2.3,output='EqualMuon')
+#tray.AddModule(Hybridforge,seed='Monopod',factor=4.5,output='LongMuon')
+#tray.AddModule(Hybridforge,seed='Monopod',factor=2.3,output='EqualMuon')
 
 
 
@@ -129,7 +131,7 @@ tray.AddService('BipedParametrizationFactory', 'bipedparam',
     StepZenith=0.3, RelativeBoundsZenith=[-6,6],
     StepLogE=0.1, BoundsLogE=[0,4],
     StepLogL=0.1, BoundsLogL=[0,3],
-    StartingCascadeStepSize=0.4
+    StartingCascadeStepSize=0.0
 )
 
 

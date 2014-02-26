@@ -20,6 +20,7 @@ muon_service = photonics_service.I3PhotoSplineService('/net/user/mntobin/IceRec/
 cascade_service_mie = photonics_service.I3PhotoSplineService('/net/user/mntobin/IceRec/Tables/ems_mie_z20_a10_150.abs.fits', '/net/user/mntobin/IceRec/Tables/ems_mie_z20_a10_150.prob.fits', 0)
 print "Yum Photonics Tables!"
 tray = I3Tray()
+#icetray.set_log_level(icetray.I3LogLevel.LOG_INFO)
 tray.AddModule('I3Reader', 'reader', FilenameList=files)
 #fixup code from JVS
 def flag_borked_slc(frame):
@@ -57,9 +58,10 @@ def Hybridforge(frame, seed, lengthseed, output):
 #        else:
 #            energy = source.energy
         forged_particle = dataclasses.I3Particle()
-        forged_particle.energy = source.energy
-	forged_particle.length = (4.5*source.energy + lseed.length)/2.0
-        forged_particle.dir.set_direction(source.dir.zenith, source.dir.azimuth)
+#        forged_particle.energy = source.energy
+#	forged_particle.length = (4.5*source.energy + lseed.length)/2.0
+	forged_particle.length = 4*source.energy
+        forged_particle.dir = source.dir
         forged_particle.pos.x = source.pos.x
         forged_particle.pos.y = source.pos.y
         forged_particle.pos.z = source.pos.z
@@ -92,8 +94,8 @@ tray.AddService('BipedParametrizationFactory', 'bipedparam',
     StepZ=5, RelativeBoundsZ=[-50.0,50.0],
     StepAzimuth=0.3, RelativeBoundsAzimuth=[-3,3],
     StepZenith=0.2, RelativeBoundsZenith=[-6,6],
-    StepLogE=0.05, BoundsLogE=[0,4],
-    StepLogL=0.1, BoundsLogL=[0,3],
+    StepLogE=0.1, BoundsLogE=[0,4],
+    StepLogL=0.5, BoundsLogL=[0,3],
 #    StepAzimuth=0.2, BoundsAzimuth=[-1,7.5],
 #    StepZenith=0.05, BoundsZenith=[-0.11,3.25],
     StartingCascadeStepSize=0.4

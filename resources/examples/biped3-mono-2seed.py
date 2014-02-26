@@ -41,7 +41,7 @@ def Hybridforge(frame, seed, factor, output):
         forged_particle = dataclasses.I3Particle()
         forged_particle.energy = source.energy
 	forged_particle.length = source.energy*factor
-        forged_particle.dir.set_direction(source.dir.zenith, source.dir.azimuth)
+        forged_particle.dir = source.dir
         forged_particle.pos.x = source.pos.x
         forged_particle.pos.y = source.pos.y
         forged_particle.pos.z = source.pos.z
@@ -99,9 +99,10 @@ def BiPedChooser(frame, winner="",seedlist=[]):
 
 #Seeds with most common muon/cascade energy sharing patterns (most energy in muon vs. equal sharing between muon and cascade)
 #llh does not change for length minimization with StepL < MuonSpacing, so we want our seed to be as close to the actual value as possible
-tray.AddModule(Hybridforge,seed='Monopod', factor=4.5, output='LongMuon')
-tray.AddModule(Hybridforge,seed='Monopod',factor=2.3, output='EqualMuon')
-
+tray.AddModule(Hybridforge,seed='MonopodFit', factor=4.5, output='LongMuon')
+tray.AddModule(Hybridforge,seed='MonopodFit',factor=2.3, output='EqualMuon')
+#tray.AddModule(Hybridforge,seed='Monopod', factor=4.5, output='LongMuon')
+#tray.AddModule(Hybridforge,seed='Monopod',factor=2.3, output='EqualMuon')
 
 
 
@@ -198,6 +199,6 @@ tray.AddModule(count,"mycounter")
 tray.AddModule('I3Writer', 'writer', filename=sys.argv[1])
 tray.AddModule('TrashCan','can')
 print "Got the tray put together, start running..."
-tray.Execute()
+tray.Execute(10)
 tray.Finish()
 

@@ -245,7 +245,7 @@ BipedParametrization::Configure()
 		//log_info("OneMoreTimePositiveCascadeDirStep");
 		I3FitParameterInitSpecs specs("dir");
 		specs.minval_ = 0;
-		specs.maxval_ = 0;
+		specs.maxval_ = 6.3;
 		specs.stepsize_ = starting_cascade_dirstep_;
 
 		specs.name_ = "cascadedir1";
@@ -268,6 +268,7 @@ BipedHypothesis(I3ParticleConstPtr track,
 {
 	double MuonEnergy = track->GetLength()/4.50;
 	double CascEnergy = track->GetEnergy()-MuonEnergy;
+	log_info("Cascade seed energy %f, Muon seed energy %f", CascEnergy, MuonEnergy);
 	I3Particle muon, cascade;
 	muon.SetType(I3Particle::MuMinus);
 	muon.SetShape(I3Particle::ContainedTrack);
