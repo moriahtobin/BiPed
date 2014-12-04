@@ -2,52 +2,88 @@
 from I3Tray import *
 import sys
 from icecube import icetray, dataio, dataclasses, photonics_service, gulliver
-from icecube import millipede, wavedeform
+from icecube import millipede, wavedeform, common_variables
 load('gulliver-modules')
 load('BiPed')
+load('WaveCalibrator')
 load('libparticleforge')
 
-if len(sys.argv) < 3:
-	print 'Usage: %s output.i3 input1.i3 [input2.i3] ...'
+if len(sys.argv) < 5:
+	print 'Usage: %s minimizer tolerance output.i3 input1.i3 [input2.i3] ...'
 	sys.exit(1)
 
-files = sys.argv[2:]
+files = sys.argv[5:]
 
+tol = float(sys.argv[2])
 
+geofile = dataio.I3File(sys.argv[4])
+gFrame = geofile.pop_frame()
+gFrame = geofile.pop_frame()
+
+geometry_ = gFrame["I3Geometry"]
 
 
 #Photonics:
-muon_service = photonics_service.I3PhotoSplineService('/net/user/mntobin/IceRec/Tables/ZeroLengthMuons_z20_a10_150.abs.fits', '/net/user/mntobin/IceRec/Tables/ZeroLengthMuons_z20_a10_150.prob.fits', 0)
+muon_service = photonics_service.I3PhotoSplineService('/data/user/mntobin/NuIceRec/MieTables-Corrected/ZeroLengthMieMuons_150_z20_a10.abs.fits', '/data/user/mntobin/NuIceRec/MieTables-Corrected/ZeroLengthMieMuons_150_z20_a10.prob.fits', 0, 150.0)
 #cascade_service = photonics_service.I3PhotoSplineService('/net/user/mntobin/IceRec/Tables/ems_spice1_z20_a10_150.abs.fits', '/net/user/mntobin/IceRec/Tables/ems_spice1_z20_a10_150.prob.fits', 0)
-cascade_service_mie = photonics_service.I3PhotoSplineService('/net/user/mntobin/IceRec/Tables/ems_mie_z20_a10_150.abs.fits', '/net/user/mntobin/IceRec/Tables/ems_mie_z20_a10_150.prob.fits', 0)
+#cascade_service_mie = photonics_service.I3PhotoSplineService('/net/user/mntobin/IceRec/Tables/ems_mie_z20_a10_150.abs.fits', '/net/user/mntobin/IceRec/Tables/ems_mie_z20_a10_150.prob.fits', 0)
+cascade_service_mie = photonics_service.I3PhotoSplineService('/data/user/mntobin/IceRec/Tables/LowEnergyCorrectedCascades_z20_a10_150m.abs.fits', '/data/user/mntobin/IceRec/Tables/LowEnergyCorrectedCascades_z20_a10_150m.prob.fits', 0.0, 150.0)
 print "Yum Photonics Tables!"
 
 
 
 #Begin:
 tray = I3Tray()
-icetray.set_log_level(icetray.I3LogLevel.LOG_INFO)
+icetray.set_log_level(icetray.I3LogLevel.LOG_TRACE)
+#icetray.set_log_level_for_unit('lilliput',icetray.I3LogLevel.LOG_TRACE)
+#icetray.set_log_level_for_unit('I3Gulliver',icetray.I3LogLevel.LOG_TRACE)
+#icetray.set_log_level_for_unit('millipede',icetray.I3LogLevel.LOG_TRACE)
 tray.AddModule('I3Reader', 'reader', FilenameList=files)
 
+
+def copytimerange(frame):
+	if frame.Has('OfflinePulses_sRT'):
+		nom=frame['OfflinePulses_TWTimeRange']
+		frame.Put('OfflinePulses_sRTTimeRange', nom)
+tray.AddModule(copytimerange, "CopyTimeRanger")
 
 
 
 #Seed creating Module
-def Hybridforge(frame, seed,factor, output):
+def Hybridforge(frame, seed, seedT, factor, output):
     if frame.Has(seed):
         source = frame[seed]
+	sourceT = frame[seedT]
+	cogPos = common_variables.hit_statistics.calculate_cog(geometry_,frame["String1Pulses"].apply(frame))
+	qtot = common_variables.hit_statistics.calculate_q_tot_pulses(geometry_,frame["OfflinePulses_sRT"].apply(frame))
         forged_particle = dataclasses.I3Particle()
-        forged_particle.energy = source.energy
-	forged_particle.length = factor*source.energy
+        forged_particle.energy = qtot.value
+	forged_particle.length = factor*qtot.value
         forged_particle.dir = source.dir
-        forged_particle.pos.x = source.pos.x
-        forged_particle.pos.y = source.pos.y
-        forged_particle.pos.z = source.pos.z
-        forged_particle.time = source.time
+        forged_particle.pos.x = cogPos.x+2
+        forged_particle.pos.y = cogPos.y+2
+        forged_particle.pos.z = cogPos.z-2
+        forged_particle.time = sourceT.time
         forged_particle.speed = 0.29979245799999998
         forged_particle.shape = dataclasses.I3Particle.ParticleShape.ContainedTrack
         forged_particle.fit_status = dataclasses.I3Particle.FitStatus.OK
         frame.Put(output, forged_particle)
+#def Hybridforge(frame, seed, seedA, factor, output):
+#    if frame.Has(seed):
+#        source = frame[seed]
+#	sourceA = frame[seedA]
+#        forged_particle = dataclasses.I3Particle()
+#        forged_particle.energy = source.energy
+#	forged_particle.length = factor*source.energy
+#        forged_particle.dir = sourceA.dir
+#        forged_particle.pos.x = source.pos.x
+#        forged_particle.pos.y = source.pos.y
+#        forged_particle.pos.z = sourceA.pos.z
+#        forged_particle.time = sourceA.time
+#        forged_particle.speed = 0.29979245799999998
+#        forged_particle.shape = dataclasses.I3Particle.ParticleShape.ContainedTrack
+#        forged_particle.fit_status = dataclasses.I3Particle.FitStatus.OK
+#        frame.Put(output, forged_particle)
 
 
 #MC seed module
@@ -68,8 +104,10 @@ tray.AddModule('I3ParticleForgeModule', 'most_energetic_primary',
 
 #Seeds with most common muon/cascade energy sharing patterns (most energy in muon vs. equal sharing between muon and cascade)
 #llh does not change for length minimization with StepL < MuonSpacing, so we want our seed to be as close to the actual value as possible
-tray.AddModule(Hybridforge,seed='MonopodFit',factor=4.5,output='LongMuon')
-tray.AddModule(Hybridforge,seed='MonopodFit',factor=2.3,output='EqualMuon')
+tray.AddModule(Hybridforge,seed='LineFit_DC',seedT='CascadeLast_DC', factor=4.5, output='LongMuon')
+tray.AddModule(Hybridforge,seed='LineFit_DC',seedT='CascadeLast_DC',factor=2.3, output='EqualMuon')
+#tray.AddModule(Hybridforge,seed='MonopodFit',seedA='MPEFitEuler_Contained',factor=4.5,output='LongMuon')
+#tray.AddModule(Hybridforge,seed='MonopodFit',seedA='MPEFitEuler_Contained',factor=2.3,output='EqualMuon')
 #tray.AddModule(Hybridforge,seed='Monopod',factor=4.5,output='LongMuon')
 #tray.AddModule(Hybridforge,seed='Monopod',factor=2.3,output='EqualMuon')
 
@@ -118,21 +156,22 @@ tray.AddService('BipedParametrizationFactory', 'static',
     StepZ=0,
     StepAzimuth=0,
     StepZenith=0,
-    StepLogE=0,
+#    StepLogE=0,
     StepLogL=0,
     StartingCascadeStepSize=0.0
 )
 tray.AddService('BipedParametrizationFactory', 'bipedparam',
-    StepT=5,
-    StepX=50, RelativeBoundsX=[-400.0,400.0],
-    StepY=50, RelativeBoundsY=[-400.0,400.0],
-    StepZ=50, BoundsZ=[-550.0,550.0],
-    StepAzimuth=0.3, RelativeBoundsAzimuth=[-3,3],
-    StepZenith=0.3, RelativeBoundsZenith=[-6,6],
-    StepLogE=0.1, BoundsLogE=[0,4],
+    StepT=30,
+    StepX=20, RelativeBoundsX=[-300.0,300.0], #from100
+    StepY=20, RelativeBoundsY=[-300.0,300.0], #from100
+    StepZ=30, RelativeBoundsZ=[-450.0,450.0], #from150
+    StepAzimuth=0.3, BoundsAzimuth=[-0.61,7.0],
+    StepZenith=0.2, BoundsZenith=[-0.41,3.55],
+#    StepLogE=0.1, BoundsLogE=[0,4],
     StepLogL=0.1, BoundsLogL=[0,3],
-    StartingCascadeStepSize=0.0
+#    StartingCascadeStepSize=0.0
 )
+
 
 
 
@@ -140,26 +179,45 @@ tray.AddService('BipedParametrizationFactory', 'bipedparam',
 #Likelihood:
 tray.AddService('BipedLikelihoodFactory', 'bipedllh',
     MuonPhotonicsService=muon_service, CascadePhotonicsService=cascade_service_mie,
-    PhotonsPerBin=5, MuonSpacing=3, Pulses='OfflinePulses_NoBorkedSLC')
+    PhotonsPerBin=5, MuonSpacing=3, Pulses='OfflinePulses_sRT')
 
 
 
 #Minimizers:
 tray.AddService('I3GSLRandomServiceFactory','I3RandomService')
 tray.AddService('I3GulliverMinuit2Factory', 'NoEDM',
-    MaxIterations=1000, 
+    MaxIterations=1, 
     Algorithm='MIGRAD', MinuitStrategy=0,
     WithGradients=True,
     CheckGradient=False,
     IgnoreEDM=True,
     )
-tray.AddService('I3GulliverMinuit2Factory', 'minuit',
+tray.AddService('I3GulliverMinuit2Factory', 'minuitM0',
+    MaxIterations=3000, Algorithm='MIGRAD', MinuitStrategy=0, 
+    WithGradients=True,
+    FlatnessCheck=True,
+    IgnoreEDM=False,
+    CheckGradient=False,
+    Tolerance=tol
+    )
+tray.AddService('I3GulliverMinuit2Factory', 'minuitM2',
     MaxIterations=3000, Algorithm='MIGRAD', MinuitStrategy=2, 
     WithGradients=True,
     FlatnessCheck=True,
     IgnoreEDM=False,
     CheckGradient=False,
-    Tolerance=0.1
+    Tolerance=tol
+    )
+tray.AddService('I3GulliverMinuit2Factory', 'minuitS',
+    MaxIterations=1000, 
+    Algorithm='SIMPLEX',
+    IgnoreEDM=True,
+    Tolerance=tol
+    )
+tray.AddService('I3GulliverLBFGSBFactory', 'JakobMagic',
+    MaxIterations=1000, 
+    Tolerance=tol
+#Taken out 2, 5, 7, 9, 11 zeroes
     )
 
 
@@ -195,7 +253,7 @@ tray.AddService('I3BasicSeedServiceFactory', 'seed',
 #Fit with best seed:
 tray.AddModule('I3SimpleFitter', 'BiPedHardCodeFit', SeedService='seed',
     Parametrization='bipedparam', LogLikelihood='bipedllh',
-    Minimizer='minuit')
+    Minimizer=sys.argv[1])
 
 
 
@@ -210,8 +268,8 @@ def count(frame):
 tray.AddModule(count,"mycounter")
 
 
-tray.AddModule('I3Writer', 'writer', filename=sys.argv[1])
+tray.AddModule('I3Writer', 'writer', filename=sys.argv[3])
 tray.AddModule('TrashCan','can')
 print "Got the tray put together, start running..."
-tray.Execute()
+tray.Execute(7)
 tray.Finish()

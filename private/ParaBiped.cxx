@@ -6,6 +6,7 @@
 #include <gulliver/I3EventHypothesis.h>
 #include <icetray/I3ServiceFactory.h>
 #include <icetray/I3SingleServiceFactory.h>
+#include <cmath>
 
 static void BipedHypothesis(I3ParticleConstPtr track,
     std::vector<I3Particle> &hypothesis, double boundary,
@@ -17,6 +18,7 @@ class BipedParametrization : public I3SimpleParametrization {
 	public:
 		BipedParametrization(const I3Context &);
 		void Configure();
+
 
 		double boundary_;
 		double muonspacing_;
@@ -102,14 +104,14 @@ BipedParametrization::UpdatePhysicsVariables()
 		    I3Vector<I3Particle>);
 		gradsources->resize(sources->size());
 		for (unsigned i = 0; i < gradsources->size(); ++i) { 
-	                        I3Particle &gradpart = (*gradsources)[i]; 
-	                        gradpart.SetPos(0., 0., 0.); 
-	                        gradpart.SetDir(0., 0.); 
-	                        gradpart.SetTime(0.); 
-	                        gradpart.SetEnergy(0.); 
-	                        gradpart.SetLength(0.); 
-	                        gradpart.SetSpeed(0.); 
-	                }
+	                     I3Particle &gradpart = (*gradsources)[i]; 
+	                     gradpart.SetPos(0., 0., 0.); 
+	                     gradpart.SetDir(0., 0.); 
+	                     gradpart.SetTime(0.); 
+	                     gradpart.SetEnergy(0.); 
+	                     gradpart.SetLength(0.); 
+	                     gradpart.SetSpeed(0.); 
+	        }
 		gradient_->nonstd = gradsources;
 	}
 }
@@ -267,7 +269,7 @@ BipedHypothesis(I3ParticleConstPtr track,
     std::vector<I3Particle> &hypothesis, double boundary, double muonspacing)
 {
 	double MuonEnergy = track->GetLength()/4.50;
-	double CascEnergy = track->GetEnergy()-MuonEnergy;
+	double CascEnergy = std::abs(track->GetEnergy()-MuonEnergy);
 	log_info("Cascade seed energy %f, Muon seed energy %f", CascEnergy, MuonEnergy);
 	I3Particle muon, cascade;
 	muon.SetType(I3Particle::MuMinus);

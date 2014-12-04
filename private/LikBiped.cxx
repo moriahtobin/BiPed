@@ -72,16 +72,16 @@ BipedLikelihood::SetEvent(const I3Frame &frame)
 double
 BipedLikelihood::GetLogLikelihood(const I3EventHypothesis &hypo)
 {
+	log_info("InGetLLHLoop");
 	return GetLogLikelihood(hypo, NULL, false, 1.);
-	//log_info("This is where we're suppose to define the HYPOTHESIS");
 }
 
 double
 BipedLikelihood::GetLogLikelihoodWithGradient(const I3EventHypothesis &hypo,
     I3EventHypothesis &gradient, double weight)
 {
+	log_info("InGetLLHwGradsLoop");
 	return GetLogLikelihood(hypo, &gradient, true, 1.);
-	//log_info("This is where we're suppose to define the GRADIENT");
 }
 
 I3VectorI3ParticlePtr
@@ -94,27 +94,87 @@ BipedLikelihood::ExtractHypothesis(const I3EventHypothesis &hypo)
 		sources->push_back(*hypo.particle);
 	}
 	return sources;
-	//log_info("We Have Sources!");
+	log_info("We Have Sources!");
 }
 
 I3FrameObjectPtr
 BipedLikelihood::GetDiagnostics(const I3EventHypothesis &hypo)
 {
-	cholmod_sparse *response_matrix;
+	cholmod_sparse *response_matrix, *little_response_matrix;
 	I3VectorI3ParticlePtr sources = ExtractHypothesis(hypo);
 	
-	response_matrix = Millipede::GetResponseMatrix(domCache_, *sources,
+	log_info("Diagnostics Function");
+	double trackLength = (*sources)[1].GetLength();
+	unsigned int check2 = trackLength / muonspacing_;
+	boost::shared_ptr<I3Vector<I3Particle> > microSources(new I3Vector<I3Particle>);
+	microSources->push_back((*sources)[0]);
+	I3Particle PrevParticle = (*sources)[1];
+	I3Particle NextParticle = PrevParticle;
+	if (trackLength >= 1.5*muonspacing_){
+	microSources->push_back(PrevParticle);
+		unsigned int checkend = abs(check2-2);
+		double endspace = (trackLength-(checkend)*muonspacing_)/2;
+		for (double d = 0; d < checkend; d = d+muonspacing_){
+			NextParticle.SetPos(PrevParticle.ShiftAlongTrack(muonspacing_));
+			PrevParticle = NextParticle;
+			microSources->push_back(PrevParticle);
+		}
+		NextParticle.SetPos(PrevParticle.ShiftAlongTrack(endspace));
+	}
+	else {
+		(*sources).erase((*sources).end());
+	}
+	double MuSeg = (*microSources).size() -1.0;
+	double MuEnFact = 1.0;
+	if(MuSeg > 0){
+		MuEnFact = 1.0/MuSeg;
+	}
+	cholmod_triplet *pen_trip = cholmod_l_allocate_triplet(
+	    (*microSources).size(), (*sources).size(), (*microSources).size(), 0,
+	    CHOLMOD_REAL, &c);
+	pen_trip->nnz = 0;
+	unsigned i = 0; 
+		((long *)(pen_trip->i))[pen_trip->nnz] = i;
+		((long *)(pen_trip->j))[pen_trip->nnz] = (i != 0);
+		((double *)(pen_trip->x))[pen_trip->nnz] = 1;
+		pen_trip->nnz++;
+	for (unsigned i = 1; i < pen_trip->nrow; i++) {
+		((long *)(pen_trip->i))[pen_trip->nnz] = i;
+		((long *)(pen_trip->j))[pen_trip->nnz] = (i != 0);
+		((double *)(pen_trip->x))[pen_trip->nnz] = MuEnFact;
+		pen_trip->nnz++;
+	}
+	cholmod_sparse *collapser = cholmod_l_triplet_to_sparse(pen_trip, 0, &c);
+	cholmod_l_free_triplet(&pen_trip, &c);
+	response_matrix = Millipede::GetResponseMatrix(domCache_, *microSources,
 	    domEfficiency_, muon_p, cascade_p, NULL, &c);
 	if (response_matrix == NULL)
 		log_fatal("Null basis matrix");
-	
+	little_response_matrix = cholmod_l_ssmult(response_matrix, 
+	    collapser, 0, 1, 0, &c);
+	cholmod_l_free_sparse(&collapser, &c);
+	cholmod_l_free_sparse(&response_matrix, &c);
+	if (little_response_matrix == NULL)
+		log_fatal("Null basis matrix (little response)");
 	MillipedeFitParamsPtr params =
 	    boost::make_shared<MillipedeFitParams>();
 	Millipede::FitStatistics(domCache_, *sources, I3Units::MeV,
-		    response_matrix, params.get(), &c);
-	cholmod_l_free_sparse(&response_matrix, &c);
+		    little_response_matrix, params.get(), &c);
+	log_info("created Fit Statistics");
+	cholmod_l_free_sparse(&little_response_matrix, &c);
+
+//	response_matrix = Millipede::GetResponseMatrix(domCache_, *sources,
+//	    domEfficiency_, muon_p, cascade_p, NULL, &c);
+//	if (response_matrix == NULL)
+//		log_fatal("Null basis matrix");
 	
-	//log_info("We Have Parameters!");
+//	MillipedeFitParamsPtr params =
+//	    boost::make_shared<MillipedeFitParams>();
+//	Millipede::FitStatistics(domCache_, *sources, I3Units::MeV,
+//		    response_matrix, params.get(), &c);
+//	cholmod_l_free_sparse(&response_matrix, &c);
+	
+	log_info("We Have Parameters!-Now With Longer Matching Response Matrix Calculations!");
 	return params;
 }
 
@@ -132,6 +192,7 @@ BipedLikelihood::GetLogLikelihood(const I3EventHypothesis &hypo,
     I3EventHypothesis *gradient, bool fit_energy, double weight)
 {
 	//log_info("%f is the muon spacing", muonspacing_); 
+	log_info("In the GetLLH Function");
 	cholmod_sparse *response_matrix, *little_response_matrix, *gradients;
 	double llh = 0.;
 
@@ -143,6 +204,12 @@ BipedLikelihood::GetLogLikelihood(const I3EventHypothesis &hypo,
 		gradsources = ExtractHypothesis(*gradient);
 		assert(sources->size() == gradsources->size());
 	}
+
+	// Shortcut to noise-only likelihood if no elements
+	if (sources->size() == 0)
+		return Millipede::FitStatistics(domCache_, *sources,
+		    I3Units::MeV, NULL, NULL, &c);
+
 // Make a vector of particles out of the cascade & muon:
 	// cascade is the starting cascade, and muon is replaced
 	// by equal energy, closely spaced cascades to simulate
@@ -154,6 +221,7 @@ BipedLikelihood::GetLogLikelihood(const I3EventHypothesis &hypo,
 
 
 	// get total track length from hypothesis muon
+	//collect diagnostic variables
 	double trackLength = (*sources)[1].GetLength();
 	double zen_cascade = (*sources)[0].GetZenith();
 	double zen_track = (*sources)[1].GetZenith();
@@ -162,27 +230,51 @@ BipedLikelihood::GetLogLikelihood(const I3EventHypothesis &hypo,
 	double x_v = (*sources)[0].GetX();
 	double y_v = (*sources)[0].GetY();
 	double z_v = (*sources)[0].GetZ();
+	unsigned int check2 = trackLength / muonspacing_;
+	log_info("%d is the number of int(L/muonspacing)", check2);
 //	double check = trackLength - 0.5*muonspacing_;
 //	double d=0;
 
-	// space cascades closely to simulate min ionizing muon
-	I3Particle PrevParticle = (*sources)[1]; //start with hypothsis muon
-	//log_info("%d is the particle type of PrevParticle for Muon Looping", PrevParticle.GetType());
-	//log_info("Start Yo Particles");
+	//create muon segment by grabbing original muon
+	I3Particle PrevParticle = (*sources)[1];
+	log_info("%d is the particle type of PrevParticle for Muon Looping", PrevParticle.GetType());
 	I3Particle NextParticle = PrevParticle;
-//	microSources->push_back(PrevParticle);
-	for (double d = 0; d < trackLength; d = d+muonspacing_){
-//	for (double d=0; d<check; d = d+muonspacing_){
-//	for (; d<check; d = d+muonspacing_){
-		//log_info("%f is the length of our Muon now", d);
-		//log_info("%f is the total length of our muon", trackLength);
-		//log_info("%f is the muon spacing", muonspacing_); 
-		microSources->push_back(PrevParticle);
-		NextParticle.SetPos(PrevParticle.ShiftAlongTrack(muonspacing_));
-		PrevParticle = NextParticle;
+
+
+	//Create Muon that consists of muon points with muon spacing of >= Muonspacing for last segments
+	//In case of Muon Length <= 2 >= 1.5 muonspacings, create hypthesis out of 2 muon points
+	if (trackLength >= 1.5*muonspacing_){
+	microSources->push_back(PrevParticle);
+		unsigned int checkend = abs(check2-2);
+		log_info("%d is the number of int(abs(L/muonspacing)-2))", checkend);
+		double endspace = (trackLength-(checkend)*muonspacing_)/2;
+		for (double d = 0; d < checkend; d = d+muonspacing_){
+//		for (double d=0; d<check; d = d+muonspacing_){
+//		for (; d<check; d = d+muonspacing_){
+			//log_info("%f is the length of our Muon now", d);
+			//log_info("%f is the total length of our muon", trackLength);
+			//log_info("%f is the muon spacing", muonspacing_); 
+			NextParticle.SetPos(PrevParticle.ShiftAlongTrack(muonspacing_));
+			PrevParticle = NextParticle;
+			microSources->push_back(PrevParticle);
+		}
+		NextParticle.SetPos(PrevParticle.ShiftAlongTrack(endspace));
+		log_info("We just made the composite muon");
 	}
+	//Test Cascade Only Hypothesis for very small Muons
+	else {
+		(*sources).erase((*sources).end());
+		//log_info("%d is the particle type of Source Particle", (*sources)[0].GetType());
+		log_info("We just made a cascade-only source");
+	}
+		
 	double MuSeg = (*microSources).size() -1.0;
-	double MuEnFact = 1.0/MuSeg;
+	double MuEnFact = 1.0;
+	if(MuSeg > 0){
+		MuEnFact = 1.0/MuSeg;
+	}
+
+
 
 //	if (d > muonspacing_){
 //		(*sources)[1].SetLength(d*I3Units::m);
@@ -195,7 +287,6 @@ BipedLikelihood::GetLogLikelihood(const I3EventHypothesis &hypo,
 	cholmod_triplet *pen_trip = cholmod_l_allocate_triplet(
 	    (*microSources).size(), (*sources).size(), (*microSources).size(), 0,
 	    CHOLMOD_REAL, &c);
-	//log_info("TRIPLETS");
 	// starting number of non-zero entries in this matrix:
 	pen_trip->nnz = 0;
 //	for(unsigned row = 0; row < pen_trip->nrow; row++){
@@ -213,12 +304,14 @@ BipedLikelihood::GetLogLikelihood(const I3EventHypothesis &hypo,
 //			pen_trip->nnz++;
 //		}
 //	}
+
+
 	unsigned i = 0; 
 		((long *)(pen_trip->i))[pen_trip->nnz] = i;
 		((long *)(pen_trip->j))[pen_trip->nnz] = (i != 0);
 		((double *)(pen_trip->x))[pen_trip->nnz] = 1;
 		pen_trip->nnz++;
-	
+	//Energy Correction for Composite Muon
 	for (unsigned i = 1; i < pen_trip->nrow; i++) {
 		((long *)(pen_trip->i))[pen_trip->nnz] = i;
 		((long *)(pen_trip->j))[pen_trip->nnz] = (i != 0);
@@ -226,7 +319,6 @@ BipedLikelihood::GetLogLikelihood(const I3EventHypothesis &hypo,
 		pen_trip->nnz++;
 	}
 	cholmod_sparse *collapser = cholmod_l_triplet_to_sparse(pen_trip, 0, &c);
-	//log_info("The Collapser");
 	cholmod_l_free_triplet(&pen_trip, &c);
 //	cholmod_dense *one_muon_mult =
 //	    cholmod_l_sparse_to_dense(collapser, &c);
@@ -240,7 +332,7 @@ BipedLikelihood::GetLogLikelihood(const I3EventHypothesis &hypo,
 	response_matrix = Millipede::GetResponseMatrix(domCache_, *microSources,
 	    domEfficiency_, muon_p, cascade_p,
 	    (gradient == NULL) ? NULL : &gradients, &c);
-	//log_info("Response_matrix has been defined");
+	log_info("Response_matrix has been defined");
 	if (response_matrix == NULL)
 		log_fatal("Null basis matrix");
 //	cholmod_dense *response =
@@ -255,9 +347,9 @@ BipedLikelihood::GetLogLikelihood(const I3EventHypothesis &hypo,
 
 	// Colapse the resulting big matrix back into a 2-particle matrix
 	little_response_matrix = cholmod_l_ssmult(response_matrix, 
-	    collapser, 0, 1, 0, &c) ;
+	    collapser, 0, 1, 0, &c);
 
-	log_info("Guess What's delicious guys? Little Matrices");
+	log_info("Combined Muon Response Matrix Created");
 
 	cholmod_l_free_sparse(&collapser, &c);
 
@@ -272,33 +364,36 @@ BipedLikelihood::GetLogLikelihood(const I3EventHypothesis &hypo,
 //	}
 	
 	if (fit_energy) {
-		log_info("fit for particle vector energy");
+		log_info("Solve for energy losses");
 		SolveEnergyLosses(*sources, little_response_matrix,
 	//Needs to either be micro and resp or src and little NOT micro and little
 		    (gradient == NULL ? NULL : gradients));
 		if (sources->size() == 1)
 			hypo.particle->SetEnergy((*sources)[0].GetEnergy());
+		log_info("We should now have a nice energy");
 	}
 
 
-	llh = Millipede::FitStatistics(domCache_, *microSources, I3Units::MeV,
-	    response_matrix, NULL, &c);
+	llh = Millipede::FitStatistics(domCache_, *sources, I3Units::MeV,
+	    little_response_matrix, NULL, &c);
+		//Dec 4th: above was micro and response....why did I do that? changed to sources and little, let's see if the llh goes crazy?
 		log_info("[%f m mu, vertex (%f, %f, %f)] + ", trackLength, x_v, y_v, z_v);
 		log_info("[ (%f zen_mu, %f zen_casc), (%f azi_mu, %f azi_casc)] -> (llh=%f)", zen_track, zen_cascade, azi_track, azi_casc, llh);
 
 	if (gradient != NULL) {
+		log_info("Begin non-null gradients loop");
 //		assert(sources->size() == gradsources->size());
 		Millipede::LLHGradient(domCache_, *sources, *gradsources,
 		    I3Units::MeV, weight, little_response_matrix, gradients, &c);
 	//Jun 20, 2013 replace and resp w/little_resp
 	//SOMETHING IN THE ABOVE STATEMENT IS CRYING OUT TO CHOLMOD
-		log_info("We are in the gradient statement");
+		log_info("Just finished LLHGradient calculation");
 		cholmod_l_free_sparse(&gradients, &c);
 		if (sources->size() == 1) {
 			// NB: the requested weight is already applied in
 			// the call to LLHGradient()
 			I3Particle &p = *gradient->particle;
-			//log_info("Define p");
+			log_info("Only Cascade Grads Calculation");
 			p.SetPos(I3Position(
 			    p.GetPos().GetX() +
 			      (*gradsources)[0].GetPos().GetX(),
@@ -307,17 +402,18 @@ BipedLikelihood::GetLogLikelihood(const I3EventHypothesis &hypo,
 			    p.GetPos().GetZ() +
 			      (*gradsources)[0].GetPos().GetZ()
 			));
-			//log_info("Increased Position");
+			log_info("Increased Position");
 			p.SetTime(p.GetTime() + (*gradsources)[0].GetTime());
-			//log_info("Increased Time");
+			log_info("Increased Time");
 			p.SetDir(I3Direction(
 			    p.GetDir().GetZenith() +
 			      (*gradsources)[0].GetDir().GetZenith(),
 			    p.GetDir().GetAzimuth() +
 			      (*gradsources)[0].GetDir().GetAzimuth()
 			));
-			//log_info("Increased Zen and Azi");			
+			log_info("Increased Zen and Azi");			
 		}
+		for(int i=0; i<gradsources->size(); i++) log_warn_stream((*gradsources)[i]); //info->warn for error checking
 	}
 	if (gradient == NULL) {
 	log_info("NULL GRADIENT MATRIX");
@@ -325,8 +421,7 @@ BipedLikelihood::GetLogLikelihood(const I3EventHypothesis &hypo,
 
 	cholmod_l_free_sparse(&response_matrix, &c);
 	cholmod_l_free_sparse(&little_response_matrix, &c);
-	//The above may actually need to be the little matrix...
-	//log_info("We just increased some values, so let's give 'em to the llh");
+	log_info("End of LLH Function");
 	return llh;
 }
 

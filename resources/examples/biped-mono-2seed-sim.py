@@ -26,38 +26,60 @@ print "Yum Photonics Tables!"
 
 #Begin:
 tray = I3Tray()
-icetray.set_log_level(icetray.I3LogLevel.LOG_INFO)
+#icetray.set_log_level(icetray.I3LogLevel.LOG_INFO)
 tray.AddModule('I3Reader', 'reader', FilenameList=files)
 
-
+def copytimerange(frame):
+	if frame.Has('OfflinePulses_sRT'):
+		nom=frame['OfflinePulsesTimeRange']
+		frame.Put('OfflinePulses_sRTTimeRange', nom)
+tray.AddModule(copytimerange, "CopyTimeRanger")
 
 
 #Seed creating Module
-def Hybridforge(frame, seed, seedA,factor, output):
+def Hybridforge(frame, seed, seedT, factor, output):
     if frame.Has(seed):
         source = frame[seed]
-	sourceA = frame[seedA]
+	sourceT = frame[seedT]
+	cogPos = common_variables.hit_statistics.calculate_cog(geometry_,frame["String1Pulses"].apply(frame))
+	qtot = common_variables.hit_statistics.calculate_q_tot_pulses(geometry_,frame["OfflinePulses_sRT"].apply(frame))
         forged_particle = dataclasses.I3Particle()
-        forged_particle.energy = source.energy
-	forged_particle.length = factor*source.energy
-        forged_particle.dir.set_direction(sourceA.dir.zenith, sourceA.dir.azimuth)
-        forged_particle.pos.x = source.pos.x
-        forged_particle.pos.y = source.pos.y
-        forged_particle.pos.z = source.pos.z
-        forged_particle.time = source.time
+        forged_particle.energy = qtot*I3Units::GeV
+	forged_particle.length = factor*qtot*I3Units::m
+        forged_particle.dir = source.dir
+        forged_particle.pos.x = cogPos.x
+        forged_particle.pos.y = cogPos.y
+        forged_particle.pos.z = cogPos.z
+        forged_particle.time = sourceT.time
         forged_particle.speed = 0.29979245799999998
         forged_particle.shape = dataclasses.I3Particle.ParticleShape.ContainedTrack
         forged_particle.fit_status = dataclasses.I3Particle.FitStatus.OK
         frame.Put(output, forged_particle)
 
-def Secondforge(frame, seed, seedA, output):
+#def Hybridforge(frame, seed, seedA, factor, output):
+#    if frame.Has(seed):
+#        source = frame[seed]
+#	sourceA = frame[seedA]
+#        forged_particle = dataclasses.I3Particle()
+#        forged_particle.energy = source.energy
+#	forged_particle.length = factor*source.energy
+#        forged_particle.dir = sourceA.dir
+#        forged_particle.pos.x = sourceA.pos.x
+#        forged_particle.pos.y = sourceA.pos.y
+#        forged_particle.pos.z = sourceA.pos.z
+#        forged_particle.time = sourceA.time
+#        forged_particle.speed = 0.29979245799999998
+#        forged_particle.shape = dataclasses.I3Particle.ParticleShape.ContainedTrack
+#        forged_particle.fit_status = dataclasses.I3Particle.FitStatus.OK
+#        frame.Put(output, forged_particle)
+
+def Secondforge(frame, seed, output):
     if frame.Has(seed):
         source = frame[seed]
-	sourceA = frame[seedA]
         forged_particle = dataclasses.I3Particle()
         forged_particle.energy = source.energy
-	forged_particle.length = sourceA.length
-        forged_particle.dir.set_direction(sourceA.dir.zenith, sourceA.dir.azimuth)
+	forged_particle.length = 5.0
+        forged_particle.dir = source.dir
         forged_particle.pos.x = source.pos.x
         forged_particle.pos.y = source.pos.y
         forged_particle.pos.z = source.pos.z
@@ -86,9 +108,11 @@ tray.AddModule('I3ParticleForgeModule', 'most_energetic_primary',
 
 #Seeds with most common muon/cascade energy sharing patterns (most energy in muon vs. equal sharing between muon and cascade)
 #llh does not change for length minimization with StepL < MuonSpacing, so we want our seed to be as close to the actual value as possible
-tray.AddModule(Hybridforge,seed='MonopodFit', seedA='MPEFitEuler_Contained',factor=4.5,output='LongMuon')
-tray.AddModule(Hybridforge,seed='MonopodFit',seedA='MPEFitEuler_Contained',factor=2.3,output='EqualMuon')
-tray.AddModule(Secondforge,seed='MonopodFit',seedA='MPEFitEuler_Contained',output='MerpMuon')
+tray.AddModule(Hybridforge,seed='SPEFit2_DC',seedT='CascadeLast_DC', factor=4.5, output='LongMuon')
+tray.AddModule(Hybridforge,seed='SPEFit2_DC',seedT='CascadeLast_DC',factor=2.3, output='EqualMuon')
+#tray.AddModule(Hybridforge,seed='MonopodFit', seedA='MPEFitEuler_Contained',factor=4.5,output='LongMuon')
+#tray.AddModule(Hybridforge,seed='MonopodFit',seedA='MPEFitEuler_Contained',factor=2.3,output='EqualMuon')
+#tray.AddModule(Secondforge,seed='MonopodFit',output='MerpMuon')
 
 
 
@@ -140,29 +164,30 @@ tray.AddService('BipedParametrizationFactory', 'static',
 )
 tray.AddService('BipedParametrizationFactory', 'bipedparam-1',
     StepT=5,
-    StepX=50, RelativeBoundsX=[-400.0,400.0],
-    StepY=50, RelativeBoundsY=[-400.0,400.0],
-    StepZ=50, BoundsZ=[-550.0,550.0],
-    StepAzimuth=0.1, BoundsAzimuth=[-0.1,6.2],
-    StepZenith=0.1, BoundsZenith=[-0.11,3.25],
-    StepLogE=0.1, BoundsLogE=[0,4],
-    StepLogL=0.1, BoundsLogL=[0,3],
-    StartingCascadeStepSize=0.2
+    StepX=5, RelativeBoundsX=[-100.0,100.0],
+    StepY=5, RelativeBoundsY=[-100.0,100.0],
+    StepZ=5, BoundsZ=[-150.0,150.0],
+    StepAzimuth=0.2, BoundsAzimuth=[-0.61,7.0],
+    StepZenith=0.05, BoundsZenith=[-0.41,3.55],
+    StepLogE=0.05, BoundsLogE=[0,4],
+    StepLogL=0.05, BoundsLogL=[0,3],
+#    StartingCascadeStepSize=0.2
 )
 
 #Likelihood:
 tray.AddService('BipedLikelihoodFactory', 'bipedllh',
     MuonPhotonicsService=muon_service, CascadePhotonicsService=cascade_service_mie,
-    PhotonsPerBin=5, MuonSpacing=3, Pulses='OfflinePulses_NoBorkedSLC')
+    PhotonsPerBin=5, MuonSpacing=3, Pulses='OfflinePulses_sRT')
 
 
 
 #Minimizers:
 tray.AddService('I3GSLRandomServiceFactory','I3RandomService')
-tray.AddService('I3GulliverMinuit2Factory', 'NoEDM',
+tray.AddService('I3GulliverMinuit2Factory', 'minuitS',
     MaxIterations=1000, 
     Algorithm='SIMPLEX',
-    IgnoreEDM=True
+    IgnoreEDM=True,
+    Tolerance=0.1
     )
 tray.AddService('I3GulliverMinuit2Factory', 'NoEDM2',
     MaxIterations=1, 
@@ -172,12 +197,15 @@ tray.AddService('I3GulliverMinuit2Factory', 'NoEDM2',
     IgnoreEDM=True,
     CheckGradient=False,
     )
-tray.AddService('I3GulliverMinuit2Factory', 'minuit',
+tray.AddService('I3GulliverMinuit2Factory', 'minuitM0',
     MaxIterations=1000, 
-    Algorithm='SIMPLEX',
+    Algorithm='MIGRAD', MinuitStrategy=0, 
+    WithGradients=True,
+    FlatnessCheck=True,
     IgnoreEDM=True,
-    Tolerance=0.1
-    )
+    CheckGradient=False,
+    Tolerance=0.005
+)
 
 
 
@@ -188,26 +216,26 @@ tray.AddService('I3BasicSeedServiceFactory', 'long',
 tray.AddService('I3BasicSeedServiceFactory', 'equal', 
     FirstGuess='EqualMuon',
     TimeShiftType='TNone')
-tray.AddService('I3BasicSeedServiceFactory','merp',
-    FirstGuess='MerpMuon',
-    TimeShiftType='TNone')
+#tray.AddService('I3BasicSeedServiceFactory','merp',
+#    FirstGuess='MerpMuon',
+#    TimeShiftType='TNone')
 tray.AddModule('I3SimpleFitter', 'Long', SeedService='long',
     Parametrization='static',LogLikelihood='bipedllh',
     Minimizer='NoEDM')
 tray.AddModule('I3SimpleFitter', 'Equal', SeedService='equal',
     Parametrization='static',LogLikelihood='bipedllh',
     Minimizer='NoEDM')
-tray.AddModule('I3SimpleFitter', 'Merp', SeedService='merp',
-    Parametrization='static',LogLikelihood='bipedllh',
-    Minimizer='NoEDM2')
+#tray.AddModule('I3SimpleFitter', 'Merp', SeedService='merp',
+#    Parametrization='static',LogLikelihood='bipedllh',
+#    Minimizer='NoEDM2')
 
 
 
 #Find best seed hypothesis:
-firstseed='SeedToss1'
-tray.AddModule(BiPedChooser, 'CoinToss', winner=firstseed, seedlist=['Long', 'Equal'])
+#firstseed='SeedToss1'
+#tray.AddModule(BiPedChooser, 'CoinToss', winner=firstseed, seedlist=['Long', 'Equal'])
 bestseed='BestSeed'
-tray.AddModule(BiPedChooser, 'TossAgain', winner=bestseed, seedlist=[firstseed,'Merp'])
+tray.AddModule(BiPedChooser, 'TossAgain', winner=bestseed, seedlist=['Long','Equal'])
 tray.AddService('I3BasicSeedServiceFactory', 'seed', 
     FirstGuess=bestseed,
     TimeShiftType='TNone')
@@ -237,5 +265,5 @@ tray.AddModule(count,"mycounter")
 tray.AddModule('I3Writer', 'writer', filename=sys.argv[1])
 tray.AddModule('TrashCan','can')
 print "Got the tray put together, start running..."
-tray.Execute(5004)
+tray.Execute()
 tray.Finish()

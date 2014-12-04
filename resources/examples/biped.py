@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-#Hello Laura :)
 from I3Tray import *
 import sys
 from icecube import icetray, dataio, dataclasses, photonics_service, gulliver
@@ -59,8 +58,8 @@ def Hybridforge(frame, seed, lengthseed, output):
 #            energy = source.energy
         forged_particle = dataclasses.I3Particle()
 #        forged_particle.energy = source.energy
-#	forged_particle.length = (4.5*source.energy + lseed.length)/2.0
-	forged_particle.length = 4*source.energy
+	forged_particle.length = (4.5*source.energy + lseed.length)/2.0
+#	forged_particle.length = 4*source.energy
         forged_particle.dir = source.dir
         forged_particle.pos.x = source.pos.x
         forged_particle.pos.y = source.pos.y
