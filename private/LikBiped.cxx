@@ -122,7 +122,8 @@ BipedLikelihood::GetDiagnostics(const I3EventHypothesis &hypo)
 		NextParticle.SetPos(PrevParticle.ShiftAlongTrack(endspace));
 	}
 	else {
-		(*sources).erase((*sources).end());
+	microSources->push_back(PrevParticle);
+//		(*sources).erase((*sources).end());
 	}
 	double MuSeg = (*microSources).size() -1.0;
 	double MuEnFact = 1.0;
@@ -193,7 +194,7 @@ BipedLikelihood::GetLogLikelihood(const I3EventHypothesis &hypo,
 {
 	//log_info("%f is the muon spacing", muonspacing_); 
 	log_info("In the GetLLH Function");
-	cholmod_sparse *response_matrix, *little_response_matrix, *gradients;
+	cholmod_sparse *response_matrix, *little_response_matrix, *gradients, *little_gradients;
 	double llh = 0.;
 
 	I3VectorI3ParticlePtr sources = ExtractHypothesis(hypo);
@@ -282,7 +283,8 @@ BipedLikelihood::GetLogLikelihood(const I3EventHypothesis &hypo,
 
 //	double MuLen = (*sources)[1].GetLength();
 
-	// Make a matrix of ones and zeros for collapsing stuff
+	// Make a matrix of ones and zeros for collapsing the multi-muon response matrix
+	// into a single muon response matrix (little_response_matrix)
 	// (a triplet is: matrix position i,j; and value x)
 	cholmod_triplet *pen_trip = cholmod_l_allocate_triplet(
 	    (*microSources).size(), (*sources).size(), (*microSources).size(), 0,
@@ -329,6 +331,69 @@ BipedLikelihood::GetLogLikelihood(const I3EventHypothesis &hypo,
 //		std::cout<<row<<","<<col<<" : "<<elem<<std::endl;
 //		}
 //	}
+
+	// Make matrix for converting multi-muon gradients to single muon little_gradients
+	cholmod_triplet *grad_trip = cholmod_l_allocate_triplet(
+	    (*microSources).size()*6, 12, (*microSources).size()*6, 0,
+	    CHOLMOD_REAL, &c);
+	// starting number of non-zero entries in this matrix:
+	grad_trip->nnz = 0;
+	//Keep the same gradients for the cascade
+	for (unsigned i = 0; i < 6; i++) { 
+		((long *)(grad_trip->i))[grad_trip->nnz] = i;
+		((long *)(grad_trip->j))[grad_trip->nnz] = i;
+		((double *)(grad_trip->x))[grad_trip->nnz] = 1;
+		grad_trip->nnz++;
+	}
+	//Combine muon gradients
+	for (unsigned i = 6; i < grad_trip->nrow; i+=6) {
+		((long *)(grad_trip->i))[grad_trip->nnz] = i;
+		((long *)(grad_trip->j))[grad_trip->nnz] = 6;
+		((double *)(grad_trip->x))[grad_trip->nnz] = 1;
+		grad_trip->nnz++;
+	}
+	for (unsigned i = 7; i < grad_trip->nrow; i+=6) {
+		((long *)(grad_trip->i))[grad_trip->nnz] = i;
+		((long *)(grad_trip->j))[grad_trip->nnz] = 7;
+		((double *)(grad_trip->x))[grad_trip->nnz] = 1;
+		grad_trip->nnz++;
+	}
+	for (unsigned i = 8; i < grad_trip->nrow; i+=6) {
+		((long *)(grad_trip->i))[grad_trip->nnz] = i;
+		((long *)(grad_trip->j))[grad_trip->nnz] = 8;
+		((double *)(grad_trip->x))[grad_trip->nnz] = 1;
+		grad_trip->nnz++;
+	}
+	for (unsigned i = 9; i < grad_trip->nrow; i+=6) {
+		((long *)(grad_trip->i))[grad_trip->nnz] = i;
+		((long *)(grad_trip->j))[grad_trip->nnz] = 9;
+		((double *)(grad_trip->x))[grad_trip->nnz] = 1;
+		grad_trip->nnz++;
+	}
+	for (unsigned i = 10; i < grad_trip->nrow; i+=6) {
+		((long *)(grad_trip->i))[grad_trip->nnz] = i;
+		((long *)(grad_trip->j))[grad_trip->nnz] = 10;
+		((double *)(grad_trip->x))[grad_trip->nnz] = 1;
+		grad_trip->nnz++;
+	}
+	for (unsigned i = 11; i < grad_trip->nrow; i+=6) {
+		((long *)(grad_trip->i))[grad_trip->nnz] = i;
+		((long *)(grad_trip->j))[grad_trip->nnz] = 11;
+		((double *)(grad_trip->x))[grad_trip->nnz] = 1;
+		grad_trip->nnz++;
+	}
+	cholmod_sparse *grad_collapser = cholmod_l_triplet_to_sparse(grad_trip, 0, &c);
+	cholmod_l_free_triplet(&grad_trip, &c);
+//	cholmod_dense *one_muon_grad_mult =
+//	    cholmod_l_sparse_to_dense(grad_collapser, &c);
+//	for(unsigned row = 0; row < grad_collapser->nrow; row++){
+//		for(unsigned col = 0; col < grad_collapser->ncol; col++){
+//		double elem = ((double*)(one_muon_grad_mult->x))
+//			[row + col*one_muon_grad_mult->nrow];
+//		std::cout<<row<<","<<col<<" : "<<elem<<std::endl;
+//		}
+//	}
+
 	response_matrix = Millipede::GetResponseMatrix(domCache_, *microSources,
 	    domEfficiency_, muon_p, cascade_p,
 	    (gradient == NULL) ? NULL : &gradients, &c);
@@ -345,13 +410,39 @@ BipedLikelihood::GetLogLikelihood(const I3EventHypothesis &hypo,
 //		}
 //	}
 
-	// Colapse the resulting big matrix back into a 2-particle matrix
-	little_response_matrix = cholmod_l_ssmult(response_matrix, 
-	    collapser, 0, 1, 0, &c);
+
+
+	little_gradients = cholmod_l_ssmult(gradients, 
+	    grad_collapser, 0, 1, 0, &c);
+
+	log_info("Uno");
+
+//	cholmod_dense *little_gradient_fuckery =
+//	    cholmod_l_sparse_to_dense(little_gradients, &c);
+//	for(unsigned row = 0; row < little_gradients->nrow; row++){
+//		for(unsigned col = 0; col < little_gradients->ncol; col++){
+//		double elem = ((double*)(little_gradient_fuckery->x))
+//			[row + col*little_gradient_fuckery->nrow];
+//		std::cout<<row<<","<<col<<" : "<<elem<<std::endl;
+//		}
+//	}
+	log_info("Dos");
+//	cholmod_l_free_dense(&little_gradient_fuckery, &c);
 
 	log_info("Combined Muon Response Matrix Created");
 
+	cholmod_l_free_sparse(&grad_collapser, &c);
+
+
+	log_info("I have a bad feeling about this"); //this is the magic seg-fault resolving log_info statement
+
+	// Colapse the resulting big matrix back into a 2-particle matrix
+	little_response_matrix = cholmod_l_ssmult(response_matrix, 
+	    collapser, 0, 1, 0, &c);
 	cholmod_l_free_sparse(&collapser, &c);
+	cholmod_l_free_sparse(&response_matrix, &c);
+
+	
 
 //	cholmod_dense *tiny_response =
 //	    cholmod_l_sparse_to_dense(little_response_matrix, &c);
@@ -367,7 +458,7 @@ BipedLikelihood::GetLogLikelihood(const I3EventHypothesis &hypo,
 		log_info("Solve for energy losses");
 		SolveEnergyLosses(*sources, little_response_matrix,
 	//Needs to either be micro and resp or src and little NOT micro and little
-		    (gradient == NULL ? NULL : gradients));
+		    (gradient == NULL ? NULL : little_gradients));
 		if (sources->size() == 1)
 			hypo.particle->SetEnergy((*sources)[0].GetEnergy());
 		log_info("We should now have a nice energy");
@@ -384,10 +475,11 @@ BipedLikelihood::GetLogLikelihood(const I3EventHypothesis &hypo,
 		log_info("Begin non-null gradients loop");
 //		assert(sources->size() == gradsources->size());
 		Millipede::LLHGradient(domCache_, *sources, *gradsources,
-		    I3Units::MeV, weight, little_response_matrix, gradients, &c);
+		    I3Units::MeV, weight, little_response_matrix, little_gradients, &c);
 	//Jun 20, 2013 replace and resp w/little_resp
 	//SOMETHING IN THE ABOVE STATEMENT IS CRYING OUT TO CHOLMOD
 		log_info("Just finished LLHGradient calculation");
+		cholmod_l_free_sparse(&little_gradients, &c);
 		cholmod_l_free_sparse(&gradients, &c);
 		if (sources->size() == 1) {
 			// NB: the requested weight is already applied in
@@ -419,7 +511,6 @@ BipedLikelihood::GetLogLikelihood(const I3EventHypothesis &hypo,
 	log_info("NULL GRADIENT MATRIX");
 	}
 
-	cholmod_l_free_sparse(&response_matrix, &c);
 	cholmod_l_free_sparse(&little_response_matrix, &c);
 	log_info("End of LLH Function");
 	return llh;
@@ -428,4 +519,3 @@ BipedLikelihood::GetLogLikelihood(const I3EventHypothesis &hypo,
 typedef I3SingleServiceFactory<BipedLikelihood, I3EventLogLikelihoodBase>
     BipedLikelihoodFactory;
 I3_SERVICE_FACTORY(BipedLikelihoodFactory);
-

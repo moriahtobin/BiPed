@@ -108,7 +108,7 @@ BipedParametrization::UpdatePhysicsVariables()
 	                     gradpart.SetPos(0., 0., 0.); 
 	                     gradpart.SetDir(0., 0.); 
 	                     gradpart.SetTime(0.); 
-	                     gradpart.SetEnergy(0.); 
+	        //             gradpart.SetEnergy(0.); 
 	                     gradpart.SetLength(0.); 
 	                     gradpart.SetSpeed(0.); 
 	        }
