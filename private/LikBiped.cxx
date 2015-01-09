@@ -416,7 +416,7 @@ BipedLikelihood::GetLogLikelihood(const I3EventHypothesis &hypo,
 	little_gradients = cholmod_l_ssmult(gradients, 
 	    grad_collapser, 0, 1, 0, &c);
 
-	log_info("Uno");
+//	log_info("Uno");
 
 //	cholmod_dense *little_gradient_fuckery =
 //	    cholmod_l_sparse_to_dense(little_gradients, &c);
@@ -427,7 +427,7 @@ BipedLikelihood::GetLogLikelihood(const I3EventHypothesis &hypo,
 //		std::cout<<row<<","<<col<<" : "<<elem<<std::endl;
 //		}
 //	}
-	log_info("Dos");
+//	log_info("Dos");
 //	cholmod_l_free_dense(&little_gradient_fuckery, &c);
 
 	log_info("Combined Muon Response Matrix Created");
@@ -435,7 +435,7 @@ BipedLikelihood::GetLogLikelihood(const I3EventHypothesis &hypo,
 	cholmod_l_free_sparse(&grad_collapser, &c);
 
 
-	log_info("I have a bad feeling about this"); //this is the magic seg-fault resolving log_info statement
+	log_info("I have a bad feeling about this"); 
 
 	// Colapse the resulting big matrix back into a 2-particle matrix
 	little_response_matrix = cholmod_l_ssmult(response_matrix, 
