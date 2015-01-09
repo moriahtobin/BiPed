@@ -264,9 +264,10 @@ BipedLikelihood::GetLogLikelihood(const I3EventHypothesis &hypo,
 	}
 	//Test Cascade Only Hypothesis for very small Muons
 	else {
-		(*sources).erase((*sources).end());
+	microSources->push_back(PrevParticle);
+	//	(*sources).erase((*sources).end());
 		//log_info("%d is the particle type of Source Particle", (*sources)[0].GetType());
-		log_info("We just made a cascade-only source");
+	//	log_info("We just made a cascade-only source");
 	}
 		
 	double MuSeg = (*microSources).size() -1.0;
