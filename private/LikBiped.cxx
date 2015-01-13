@@ -100,7 +100,7 @@ BipedLikelihood::ExtractHypothesis(const I3EventHypothesis &hypo)
 I3FrameObjectPtr
 BipedLikelihood::GetDiagnostics(const I3EventHypothesis &hypo)
 {
-	cholmod_sparse *response_matrix, *little_response_matrix;
+	cholmod_sparse *response_matrix, *many_response_matrix;
 	I3VectorI3ParticlePtr sources = ExtractHypothesis(hypo);
 	
 	log_info("Diagnostics Function");
@@ -136,7 +136,7 @@ BipedLikelihood::GetDiagnostics(const I3EventHypothesis &hypo)
 	pen_trip->nnz = 0;
 	unsigned i = 0; 
 		((long *)(pen_trip->i))[pen_trip->nnz] = i;
-		((long *)(pen_trip->j))[pen_trip->nnz] = (i != 0);
+		((long *)(pen_trip->j))[pen_trip->nnz] = i;
 		((double *)(pen_trip->x))[pen_trip->nnz] = 1;
 		pen_trip->nnz++;
 	for (unsigned i = 1; i < pen_trip->nrow; i++) {
@@ -147,22 +147,22 @@ BipedLikelihood::GetDiagnostics(const I3EventHypothesis &hypo)
 	}
 	cholmod_sparse *collapser = cholmod_l_triplet_to_sparse(pen_trip, 0, &c);
 	cholmod_l_free_triplet(&pen_trip, &c);
-	response_matrix = Millipede::GetResponseMatrix(domCache_, *microSources,
+	many_response_matrix = Millipede::GetResponseMatrix(domCache_, *microSources,
 	    domEfficiency_, muon_p, cascade_p, NULL, &c);
-	if (response_matrix == NULL)
+	if (many_response_matrix == NULL)
 		log_fatal("Null basis matrix");
-	little_response_matrix = cholmod_l_ssmult(response_matrix, 
+	response_matrix = cholmod_l_ssmult(many_response_matrix, 
 	    collapser, 0, 1, 0, &c);
 	cholmod_l_free_sparse(&collapser, &c);
-	cholmod_l_free_sparse(&response_matrix, &c);
-	if (little_response_matrix == NULL)
+	cholmod_l_free_sparse(&many_response_matrix, &c);
+	if (response_matrix == NULL)
 		log_fatal("Null basis matrix (little response)");
 	MillipedeFitParamsPtr params =
 	    boost::make_shared<MillipedeFitParams>();
 	Millipede::FitStatistics(domCache_, *sources, I3Units::MeV,
-		    little_response_matrix, params.get(), &c);
+		    response_matrix, params.get(), &c);
 	log_info("created Fit Statistics");
-	cholmod_l_free_sparse(&little_response_matrix, &c);
+	cholmod_l_free_sparse(&response_matrix, &c);
 
 //	response_matrix = Millipede::GetResponseMatrix(domCache_, *sources,
 //	    domEfficiency_, muon_p, cascade_p, NULL, &c);
@@ -194,7 +194,7 @@ BipedLikelihood::GetLogLikelihood(const I3EventHypothesis &hypo,
 {
 	//log_info("%f is the muon spacing", muonspacing_); 
 	log_info("In the GetLLH Function");
-	cholmod_sparse *response_matrix, *little_response_matrix, *gradients, *little_gradients;
+	cholmod_sparse *response_matrix, *many_response_matrix, *gradients, *manygradients;
 	double llh = 0.;
 
 	I3VectorI3ParticlePtr sources = ExtractHypothesis(hypo);
@@ -311,7 +311,7 @@ BipedLikelihood::GetLogLikelihood(const I3EventHypothesis &hypo,
 
 	unsigned i = 0; 
 		((long *)(pen_trip->i))[pen_trip->nnz] = i;
-		((long *)(pen_trip->j))[pen_trip->nnz] = (i != 0);
+		((long *)(pen_trip->j))[pen_trip->nnz] = i;
 		((double *)(pen_trip->x))[pen_trip->nnz] = 1;
 		pen_trip->nnz++;
 	//Energy Correction for Composite Muon
@@ -395,11 +395,11 @@ BipedLikelihood::GetLogLikelihood(const I3EventHypothesis &hypo,
 //		}
 //	}
 
-	response_matrix = Millipede::GetResponseMatrix(domCache_, *microSources,
+	many_response_matrix = Millipede::GetResponseMatrix(domCache_, *microSources,
 	    domEfficiency_, muon_p, cascade_p,
-	    (gradient == NULL) ? NULL : &gradients, &c);
+	    (gradient == NULL) ? NULL : &manygradients, &c);
 	log_info("Response_matrix has been defined");
-	if (response_matrix == NULL)
+	if (many_response_matrix == NULL)
 		log_fatal("Null basis matrix");
 //	cholmod_dense *response =
 //	    cholmod_l_sparse_to_dense(response_matrix, &c);
@@ -413,7 +413,7 @@ BipedLikelihood::GetLogLikelihood(const I3EventHypothesis &hypo,
 
 
 
-	little_gradients = cholmod_l_ssmult(gradients, 
+	gradients = cholmod_l_ssmult(manygradients, 
 	    grad_collapser, 0, 1, 0, &c);
 
 //	log_info("Uno");
@@ -438,10 +438,10 @@ BipedLikelihood::GetLogLikelihood(const I3EventHypothesis &hypo,
 	log_info("I have a bad feeling about this"); 
 
 	// Colapse the resulting big matrix back into a 2-particle matrix
-	little_response_matrix = cholmod_l_ssmult(response_matrix, 
+	response_matrix = cholmod_l_ssmult(many_response_matrix, 
 	    collapser, 0, 1, 0, &c);
 	cholmod_l_free_sparse(&collapser, &c);
-	cholmod_l_free_sparse(&response_matrix, &c);
+	cholmod_l_free_sparse(&many_response_matrix, &c);
 
 	
 
@@ -457,9 +457,9 @@ BipedLikelihood::GetLogLikelihood(const I3EventHypothesis &hypo,
 	
 	if (fit_energy) {
 		log_info("Solve for energy losses");
-		SolveEnergyLosses(*sources, little_response_matrix,
+		SolveEnergyLosses(*sources, response_matrix,
 	//Needs to either be micro and resp or src and little NOT micro and little
-		    (gradient == NULL ? NULL : little_gradients));
+		    (gradient == NULL ? NULL : gradients));
 		if (sources->size() == 1)
 			hypo.particle->SetEnergy((*sources)[0].GetEnergy());
 		log_info("We should now have a nice energy");
@@ -467,7 +467,7 @@ BipedLikelihood::GetLogLikelihood(const I3EventHypothesis &hypo,
 
 
 	llh = Millipede::FitStatistics(domCache_, *sources, I3Units::MeV,
-	    little_response_matrix, NULL, &c);
+	    response_matrix, NULL, &c);
 		//Dec 4th: above was micro and response....why did I do that? changed to sources and little, let's see if the llh goes crazy?
 		log_info("[%f m mu, vertex (%f, %f, %f)] + ", trackLength, x_v, y_v, z_v);
 		log_info("[ (%f zen_mu, %f zen_casc), (%f azi_mu, %f azi_casc)] -> (llh=%f)", zen_track, zen_cascade, azi_track, azi_casc, llh);
@@ -476,11 +476,11 @@ BipedLikelihood::GetLogLikelihood(const I3EventHypothesis &hypo,
 		log_info("Begin non-null gradients loop");
 //		assert(sources->size() == gradsources->size());
 		Millipede::LLHGradient(domCache_, *sources, *gradsources,
-		    I3Units::MeV, weight, little_response_matrix, little_gradients, &c);
+		    I3Units::MeV, weight, response_matrix, gradients, &c);
 	//Jun 20, 2013 replace and resp w/little_resp
 	//SOMETHING IN THE ABOVE STATEMENT IS CRYING OUT TO CHOLMOD
 		log_info("Just finished LLHGradient calculation");
-		cholmod_l_free_sparse(&little_gradients, &c);
+		cholmod_l_free_sparse(&manygradients, &c);
 		cholmod_l_free_sparse(&gradients, &c);
 		if (sources->size() == 1) {
 			// NB: the requested weight is already applied in
@@ -512,7 +512,7 @@ BipedLikelihood::GetLogLikelihood(const I3EventHypothesis &hypo,
 	log_info("NULL GRADIENT MATRIX");
 	}
 
-	cholmod_l_free_sparse(&little_response_matrix, &c);
+	cholmod_l_free_sparse(&response_matrix, &c);
 	log_info("End of LLH Function");
 	return llh;
 }
