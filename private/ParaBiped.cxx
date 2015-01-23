@@ -65,6 +65,7 @@ BipedParametrization::UpdatePhysicsVariables()
 	    I3Vector<I3Particle>);
 	BipedHypothesis(hypothesis_->particle, *sources,
 	    boundary_, muonspacing_);
+        assert(sources->size() == 2);
 	//log_info("%f is the muon spacing in Para", muonspacing_); 
 
 	if (starting_cascade_dirstep_ > 0 && sources->size() > 0) {
@@ -147,9 +148,11 @@ BipedParametrization::ApplyChainRule()
 	boost::shared_ptr<I3Vector<I3Particle> > sources =
 	  boost::dynamic_pointer_cast<I3Vector<I3Particle> >
 	  (hypothesis_->nonstd);
+        assert(sources->size() == 2); 
+        assert(gradsources->size() == 2);
 
 	double grad_x = 0, grad_y = 0, grad_z = 0, grad_t = 0;
-	double grad_zen = 0, grad_azi = 0;
+	double grad_zen = 0, grad_azi = 0, grad_len = 0;
 	for (unsigned i = 0; i < gradsources->size(); i++) {
 		I3Particle &gradpart = (*gradsources)[i];
 		I3Particle &part = (*sources)[i];
@@ -160,6 +163,7 @@ BipedParametrization::ApplyChainRule()
 		grad_t += gradpart.GetTime();
 		grad_zen += gradpart.GetZenith();
 		grad_azi += gradpart.GetAzimuth();
+                grad_len += gradpart.GetLength();
 
 		// X, Y, Z of sub-cascades depend on theta, phi
 		double zenith_xyz = 0, azimuth_xyz = 0;
@@ -181,6 +185,7 @@ BipedParametrization::ApplyChainRule()
 	gradient.SetPos(grad_x, grad_y, grad_z);
 	gradient.SetTime(grad_t);
 	gradient.SetDir(grad_zen, grad_azi);
+        gradient.SetLength(grad_len);
 
 	I3SimpleParametrization::ApplyChainRule();
 
