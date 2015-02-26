@@ -36,7 +36,7 @@ print "Yum Photonics Tables!"
 
 #Begin:
 tray = I3Tray()
-icetray.set_log_level(icetray.I3LogLevel.LOG_TRACE)
+#icetray.set_log_level(icetray.I3LogLevel.LOG_TRACE)
 #icetray.set_log_level_for_unit('lilliput',icetray.I3LogLevel.LOG_TRACE)
 #icetray.set_log_level_for_unit('I3Gulliver',icetray.I3LogLevel.LOG_TRACE)
 #icetray.set_log_level_for_unit('millipede',icetray.I3LogLevel.LOG_TRACE)
@@ -261,6 +261,6 @@ tray.AddModule(count,"mycounter")
 tray.AddModule('I3Writer', 'writer', filename=sys.argv[3])
 tray.AddModule('TrashCan','can')
 print "Got the tray put together, start running..."
-tray.Execute(11)
+tray.Execute()
 tray.Finish()
 

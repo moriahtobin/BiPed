@@ -1,7 +1,7 @@
 #!/usr/bin/env python
-from I3Tray import *
 import sys
 from icecube import icetray, dataio, dataclasses, photonics_service, gulliver
+from I3Tray import *
 from icecube import millipede, wavedeform, common_variables
 load('gulliver-modules')
 load('BiPed')
@@ -229,6 +229,10 @@ tray.AddService('I3BasicSeedServiceFactory', 'long',
 tray.AddService('I3BasicSeedServiceFactory', 'equal', 
     FirstGuess='EqualMuon',
     TimeShiftType='TNone')
+#tray.Add('I3LogLikelihoodCalculator', 'LongMuonFitParams',
+#    FitName='LongMuon', LogLikelihoodService='bipedllh')
+#tray.Add('I3LogLikelihoodCalculator', 'EqualMuonFitParams',
+#    FitName='EqualMuon', LogLikelihoodService='bipedllh')
 tray.AddModule('I3SimpleFitter', 'Long', SeedService='long',
     Parametrization='static',LogLikelihood='bipedllh',
     Minimizer='NoEDM')
@@ -271,5 +275,5 @@ tray.AddModule(count,"mycounter")
 tray.AddModule('I3Writer', 'writer', filename=sys.argv[3])
 tray.AddModule('TrashCan','can')
 print "Got the tray put together, start running..."
-tray.Execute(7)
+tray.Execute(25)
 tray.Finish()
