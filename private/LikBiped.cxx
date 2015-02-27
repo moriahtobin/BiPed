@@ -134,7 +134,7 @@ BipedLikelihood::GetDiagnostics(const I3EventHypothesis &hypo)
 		pen_trip->nnz++;
 	}
 		((long *)(pen_trip->i))[pen_trip->nnz] = i;
-		((long *)(pen_trip->j))[pen_trip->nnz] = nrow-1;
+		((long *)(pen_trip->j))[pen_trip->nnz] = pen_trip->nrow-1;
 		((double *)(pen_trip->x))[pen_trip->nnz] = endscale;
 		pen_trip->nnz++;
 	cholmod_sparse *collapser = cholmod_l_triplet_to_sparse(pen_trip, 0, &c);
@@ -452,7 +452,6 @@ BipedLikelihood::GetLogLikelihood(const I3EventHypothesis &hypo,
 
 	//zenith	
 	//includes lever arm effect
-	std::vector muonLengths[
 	double zen((*microSources)[1].GetZenith()), azi((*microSources)[1].GetAzimuth());
 	for (unsigned i = 11; i < grad_trip->nrow-1; i+=7) {
 		unsigned nom=0;
