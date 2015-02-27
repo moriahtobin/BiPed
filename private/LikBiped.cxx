@@ -454,7 +454,7 @@ BipedLikelihood::GetLogLikelihood(const I3EventHypothesis &hypo,
 	//includes lever arm effect
         std::vector<double> muonLengths((*microSources).size(), 0.);
                 for (unsigned i = 1; i <=(*microSources).size(); i++)
-                muonLengths[i] = scale*(sources[i].GetPos() - sources[0].GetPos()).Magnitude();
+                muonLengths[i] = ((*microSources)[i].GetPos() - (*microSources)[0].GetPos()).Magnitude();
 	double zen((*microSources)[1].GetZenith()), azi((*microSources)[1].GetAzimuth());
 	for (unsigned i = 11; i < grad_trip->nrow-1; i+=7) {
 		unsigned nom=1;
