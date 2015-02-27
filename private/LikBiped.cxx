@@ -105,32 +105,19 @@ BipedLikelihood::GetDiagnostics(const I3EventHypothesis &hypo)
 	
 	log_info("Diagnostics Function");
 	double trackLength = (*sources)[1].GetLength();
-	unsigned int check2 = trackLength / muonspacing_;
+	unsigned int MuSeg = ceil(trackLength / muonspacing_);
 	boost::shared_ptr<I3Vector<I3Particle> > microSources(new I3Vector<I3Particle>);
 	microSources->push_back((*sources)[0]);
 	I3Particle PrevParticle = (*sources)[1];
 	I3Particle NextParticle = PrevParticle;
-	if (trackLength >= 1.5*muonspacing_){
-	microSources->push_back(PrevParticle);
-		unsigned int checkend = abs(check2-2);
-		double endspace = (trackLength-(checkend)*muonspacing_)/2;
-		for (double d = 0; d < checkend; d = d+muonspacing_){
-			NextParticle.SetPos(PrevParticle.ShiftAlongTrack(muonspacing_));
-			NextParticle.SetTime(PrevParticle.GetTime()+(d + muonspacing_)/I3Constants::c);
-			PrevParticle = NextParticle;
-			microSources->push_back(PrevParticle);
-		}
-		NextParticle.SetPos(PrevParticle.ShiftAlongTrack(endspace));
+	for (double d = 0; d < MuSeg*muonspacing_; d = d+muonspacing_){
+		microSources->push_back(PrevParticle);
+		NextParticle.SetPos(PrevParticle.ShiftAlongTrack(muonspacing_));
+		NextParticle.SetTime(PrevParticle.GetTime()+muonspacing_/I3Constants::c);
+		PrevParticle = NextParticle;
 	}
-	else {
-	microSources->push_back(PrevParticle);
-//		(*sources).erase((*sources).end());
-	}
-	double MuSeg = (*microSources).size() -1.0;
-	double MuEnFact = 1.0;
-	if(MuSeg > 0){
-		MuEnFact = 1.0/MuSeg;
-	}
+	double MuEnFact = 1.0/MuSeg;
+	double endscale = MuEnFact*(trackLength - (MuSeg-1)*muonspacing_)/muonspacing_;
 	cholmod_triplet *pen_trip = cholmod_l_allocate_triplet(
 	    (*microSources).size(), (*sources).size(), (*microSources).size(), 0,
 	    CHOLMOD_REAL, &c);
@@ -140,12 +127,16 @@ BipedLikelihood::GetDiagnostics(const I3EventHypothesis &hypo)
 		((long *)(pen_trip->j))[pen_trip->nnz] = i;
 		((double *)(pen_trip->x))[pen_trip->nnz] = 1;
 		pen_trip->nnz++;
-	for (unsigned i = 1; i < pen_trip->nrow; i++) {
+	for (unsigned i = 1; i < pen_trip->nrow-1; i++) {
 		((long *)(pen_trip->i))[pen_trip->nnz] = i;
 		((long *)(pen_trip->j))[pen_trip->nnz] = (i != 0);
 		((double *)(pen_trip->x))[pen_trip->nnz] = MuEnFact;
 		pen_trip->nnz++;
 	}
+		((long *)(pen_trip->i))[pen_trip->nnz] = i;
+		((long *)(pen_trip->j))[pen_trip->nnz] = nrow-1;
+		((double *)(pen_trip->x))[pen_trip->nnz] = endscale;
+		pen_trip->nnz++;
 	cholmod_sparse *collapser = cholmod_l_triplet_to_sparse(pen_trip, 0, &c);
 	cholmod_l_free_triplet(&pen_trip, &c);
 	many_response_matrix = Millipede::GetResponseMatrix(domCache_, *microSources,
@@ -241,8 +232,7 @@ BipedLikelihood::GetLogLikelihood(const I3EventHypothesis &hypo,
 	I3Particle PrevParticle = (*sources)[1];
 	log_info("%d is the particle type of PrevParticle for Muon Looping", PrevParticle.GetType());
 	I3Particle NextParticle = PrevParticle;
-	std::vector<double> muonLengths;
-
+        std::vector<double> muonLengths;
 	//Create Muon that consists of muon points with muon spacing of >= Muonspacing for last segments
 	//In case of Muon Length <= 2 >= 1.5 muonspacings, create hypthesis out of 2 muon points
 //	if (trackLength >= 1.5*muonspacing_){
@@ -250,7 +240,8 @@ BipedLikelihood::GetLogLikelihood(const I3EventHypothesis &hypo,
 //		unsigned int checkend = abs(check2-2);
 //		log_info("%d is the number of int(abs(L/muonspacing)-2))", checkend);
 //		double endspace = (trackLength-(checkend)*muonspacing_)/2;
-	for (double d = 0; d < MuSeg; d = d+muonspacing_){
+	for (double d = 0; d < MuSeg*muonspacing_; d = d+muonspacing_){
+		microSources->push_back(PrevParticle);
 //		for (double d=0; d<check; d = d+muonspacing_){
 //		for (; d<check; d = d+muonspacing_){
 			//log_info("%f is the length of our Muon now", d);
@@ -259,8 +250,7 @@ BipedLikelihood::GetLogLikelihood(const I3EventHypothesis &hypo,
 		NextParticle.SetPos(PrevParticle.ShiftAlongTrack(muonspacing_));
 		NextParticle.SetTime(PrevParticle.GetTime()+muonspacing_/I3Constants::c);
 		PrevParticle = NextParticle;
-		microSources->push_back(PrevParticle);
-		muonLengths.push_back(d);
+                muonLengths.push_back(d);
 	}
 //	NextParticle.SetTime(PrevParticle.GetTime()+(muonLengths.back() + endspace)/I3Constants::c);
 //	muonLengths.push_back(muonLengths.back()+endspace);
@@ -411,7 +401,7 @@ BipedLikelihood::GetLogLikelihood(const I3EventHypothesis &hypo,
 	// starting number of non-zero entries in this matrix:
 	grad_trip->nnz = 0;
 	//Keep the same gradients for the cascade
-	for (unsigned i = 0; i < 7; i++) { 
+	for (unsigned i = 0; i < 6; i++) { 
 		((long *)(grad_trip->i))[grad_trip->nnz] = i;
 		((long *)(grad_trip->j))[grad_trip->nnz] = i;
 		((double *)(grad_trip->x))[grad_trip->nnz] = 1;
@@ -459,10 +449,10 @@ BipedLikelihood::GetLogLikelihood(const I3EventHypothesis &hypo,
 	((long *)(grad_trip->j))[grad_trip->nnz] = 10;
 	((double *)(grad_trip->x))[grad_trip->nnz] = endscale;
 	grad_trip->nnz++;
-	//zenith
-//	std::vector<double> muonLengths(MuSeg, muonspacing_);
-//	muonLengths.back()=
+
+	//zenith	
 	//includes lever arm effect
+	std::vector muonLengths[
 	double zen((*microSources)[1].GetZenith()), azi((*microSources)[1].GetAzimuth());
 	for (unsigned i = 11; i < grad_trip->nrow-1; i+=7) {
 		unsigned nom=0;
