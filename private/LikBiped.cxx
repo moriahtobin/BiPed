@@ -232,7 +232,7 @@ BipedLikelihood::GetLogLikelihood(const I3EventHypothesis &hypo,
 	I3Particle PrevParticle = (*sources)[1];
 	log_info("%d is the particle type of PrevParticle for Muon Looping", PrevParticle.GetType());
 	I3Particle NextParticle = PrevParticle;
-        std::vector<double> muonLengths;
+//        std::vector<double> muonLengths;
 	//Create Muon that consists of muon points with muon spacing of >= Muonspacing for last segments
 	//In case of Muon Length <= 2 >= 1.5 muonspacings, create hypthesis out of 2 muon points
 //	if (trackLength >= 1.5*muonspacing_){
@@ -250,7 +250,7 @@ BipedLikelihood::GetLogLikelihood(const I3EventHypothesis &hypo,
 		NextParticle.SetPos(PrevParticle.ShiftAlongTrack(muonspacing_));
 		NextParticle.SetTime(PrevParticle.GetTime()+muonspacing_/I3Constants::c);
 		PrevParticle = NextParticle;
-                muonLengths.push_back(d);
+//                muonLengths.push_back(d);
 	}
 //	NextParticle.SetTime(PrevParticle.GetTime()+(muonLengths.back() + endspace)/I3Constants::c);
 //	muonLengths.push_back(muonLengths.back()+endspace);
@@ -452,9 +452,12 @@ BipedLikelihood::GetLogLikelihood(const I3EventHypothesis &hypo,
 
 	//zenith	
 	//includes lever arm effect
+        std::vector<double> muonLengths((*microSources).size(), 0.);
+                for (unsigned i = 1; i <=(*microSources).size(); i++)
+                muonLengths[i] = scale*(sources[i].GetPos() - sources[0].GetPos()).Magnitude();
 	double zen((*microSources)[1].GetZenith()), azi((*microSources)[1].GetAzimuth());
 	for (unsigned i = 11; i < grad_trip->nrow-1; i+=7) {
-		unsigned nom=0;
+		unsigned nom=1;
 		((long *)(grad_trip->i))[grad_trip->nnz] = i;
 		((long *)(grad_trip->j))[grad_trip->nnz] = 11;
 		((double *)(grad_trip->x))[grad_trip->nnz] = MuEnFact;
@@ -492,7 +495,7 @@ BipedLikelihood::GetLogLikelihood(const I3EventHypothesis &hypo,
 	//azimuth
 	//includes lever arm effect
 	for (unsigned i = 12; i < grad_trip->nrow-1; i+=7) {
-		unsigned nom = 0;
+		unsigned nom = 1;
 		((long *)(grad_trip->i))[grad_trip->nnz] = i;
 		((long *)(grad_trip->j))[grad_trip->nnz] = 12;
 		((double *)(grad_trip->x))[grad_trip->nnz] = MuEnFact;
