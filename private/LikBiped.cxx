@@ -479,15 +479,15 @@ BipedLikelihood::GetLogLikelihood(const I3EventHypothesis &hypo,
 	grad_trip->nnz++;
 	((long *)(grad_trip->i))[grad_trip->nnz] = grad_trip->nrow-5;
 	((long *)(grad_trip->j))[grad_trip->nnz] = 11;
-	((double *)(grad_trip->x))[grad_trip->nnz] = -std::cos(zen)*std::cos(azi)*endscale*muonLengths[grad_trip->nrow-1];
+	((double *)(grad_trip->x))[grad_trip->nnz] = -std::cos(zen)*std::cos(azi)*endscale*muonLengths.back();
 	grad_trip->nnz++;
 	((long *)(grad_trip->i))[grad_trip->nnz] = grad_trip->nrow-4;
 	((long *)(grad_trip->j))[grad_trip->nnz] = 11;
-	((double *)(grad_trip->x))[grad_trip->nnz] = -std::cos(zen)*std::sin(azi)*endscale*muonLengths[grad_trip->nrow-1];
+	((double *)(grad_trip->x))[grad_trip->nnz] = -std::cos(zen)*std::sin(azi)*endscale*muonLengths.back();
 	grad_trip->nnz++;
 	((long *)(grad_trip->i))[grad_trip->nnz] = grad_trip->nrow-3;
 	((long *)(grad_trip->j))[grad_trip->nnz] = 11;
-	((double *)(grad_trip->x))[grad_trip->nnz] = std::sin(zen)*endscale*muonLengths[grad_trip->nrow-1];
+	((double *)(grad_trip->x))[grad_trip->nnz] = std::sin(zen)*endscale*muonLengths.back();
 	grad_trip->nnz++;
 	//azimuth
 	//includes lever arm effect
@@ -513,11 +513,11 @@ BipedLikelihood::GetLogLikelihood(const I3EventHypothesis &hypo,
 	grad_trip->nnz++;
 	((long *)(grad_trip->i))[grad_trip->nnz] = grad_trip->nrow-6;
 	((long *)(grad_trip->j))[grad_trip->nnz] = 12;
-	((double *)(grad_trip->x))[grad_trip->nnz] = std::sin(zen)*std::sin(azi)*endscale*muonLengths[grad_trip->nrow-1];
+	((double *)(grad_trip->x))[grad_trip->nnz] = std::sin(zen)*std::sin(azi)*endscale*muonLengths.back();
 	grad_trip->nnz++;
 	((long *)(grad_trip->i))[grad_trip->nnz] = grad_trip->nrow-5;
 	((long *)(grad_trip->j))[grad_trip->nnz] = 12;
-	((double *)(grad_trip->x))[grad_trip->nnz] = -std::sin(zen)*std::cos(azi)*endscale*muonLengths[grad_trip->nrow-1];
+	((double *)(grad_trip->x))[grad_trip->nnz] = -std::sin(zen)*std::cos(azi)*endscale*muonLengths.back();
 	grad_trip->nnz++;
 	//length
 	//length depends upon the placement of and spacing of the muon segments
