@@ -272,9 +272,10 @@ BipedLikelihood::GetLogLikelihood(const I3EventHypothesis &hypo,
 //		log_info("We just made a cascade-only source");
 //	}
 
-	//Create a energy scaling factor		
-	double MuEnFact = 1.0/MuSeg;
-	double endscale = MuEnFact*(trackLength - (MuSeg-1)*muonspacing_)/muonspacing_;
+	//Create a energy scaling factor
+	double lastSeg = (trackLength - (MuSeg - 1.0)*muonspacing_)/muonspacing_;		
+	double MuEnFact = 1.0/(MuSeg - 1 + lastSeg);
+	double endscale = MuEnFact*lastSeg;
 	log_warn("%f is the endscale", endscale);
 
 
@@ -396,7 +397,7 @@ BipedLikelihood::GetLogLikelihood(const I3EventHypothesis &hypo,
 
 	// Make matrix for converting multi-muon gradients to single muon little_gradients
 	cholmod_triplet *grad_trip = cholmod_l_allocate_triplet(
-	    (*microSources).size()*7, 14, (*microSources).size()*12, 0,
+	    (*microSources).size()*7, 14u, (*microSources).size()*12, 0,
 	    CHOLMOD_REAL, &c);
 	// starting number of non-zero entries in this matrix:
 	grad_trip->nnz = 0;
@@ -409,43 +410,43 @@ BipedLikelihood::GetLogLikelihood(const I3EventHypothesis &hypo,
 	}
 	//Combine muon gradients
 	//x, y, z, t
-	for (unsigned i = 7; i < grad_trip->nrow-1; i+=7) {
+	for (unsigned i = 7; i < grad_trip->nrow-7; i+=7) {
 		((long *)(grad_trip->i))[grad_trip->nnz] = i;
 		((long *)(grad_trip->j))[grad_trip->nnz] = 7;
 		((double *)(grad_trip->x))[grad_trip->nnz] = MuEnFact;
 		grad_trip->nnz++;
 	}
-	((long *)(grad_trip->i))[grad_trip->nnz] = grad_trip->nrow-1;
+	((long *)(grad_trip->i))[grad_trip->nnz] = grad_trip->nrow-7;
 	((long *)(grad_trip->j))[grad_trip->nnz] = 7;
 	((double *)(grad_trip->x))[grad_trip->nnz] = endscale;
 	grad_trip->nnz++;
-	for (unsigned i = 8; i < grad_trip->nrow-1; i+=7) {
+	for (unsigned i = 8; i < grad_trip->nrow-7; i+=7) {
 		((long *)(grad_trip->i))[grad_trip->nnz] = i;
 		((long *)(grad_trip->j))[grad_trip->nnz] = 8;
 		((double *)(grad_trip->x))[grad_trip->nnz] = MuEnFact;
 		grad_trip->nnz++;
 	}
-	((long *)(grad_trip->i))[grad_trip->nnz] = grad_trip->nrow-1;
+	((long *)(grad_trip->i))[grad_trip->nnz] = grad_trip->nrow-6;
 	((long *)(grad_trip->j))[grad_trip->nnz] = 8;
 	((double *)(grad_trip->x))[grad_trip->nnz] = endscale;
 	grad_trip->nnz++;
-	for (unsigned i = 9; i < grad_trip->nrow-1; i+=7) {
+	for (unsigned i = 9; i < grad_trip->nrow-7; i+=7) {
 		((long *)(grad_trip->i))[grad_trip->nnz] = i;
 		((long *)(grad_trip->j))[grad_trip->nnz] = 9;
 		((double *)(grad_trip->x))[grad_trip->nnz] = MuEnFact;
 		grad_trip->nnz++;
 	}
-	((long *)(grad_trip->i))[grad_trip->nnz] = grad_trip->nrow-1;
+	((long *)(grad_trip->i))[grad_trip->nnz] = grad_trip->nrow-5;
 	((long *)(grad_trip->j))[grad_trip->nnz] = 9;
 	((double *)(grad_trip->x))[grad_trip->nnz] = endscale;
 	grad_trip->nnz++;
-	for (unsigned i = 10; i < grad_trip->nrow-1; i+=7) {
+	for (unsigned i = 10; i < grad_trip->nrow-7; i+=7) {
 		((long *)(grad_trip->i))[grad_trip->nnz] = i;
 		((long *)(grad_trip->j))[grad_trip->nnz] = 10;
 		((double *)(grad_trip->x))[grad_trip->nnz] = MuEnFact;
 		grad_trip->nnz++;
 	}
-	((long *)(grad_trip->i))[grad_trip->nnz] = grad_trip->nrow-1;
+	((long *)(grad_trip->i))[grad_trip->nnz] = grad_trip->nrow-4;
 	((long *)(grad_trip->j))[grad_trip->nnz] = 10;
 	((double *)(grad_trip->x))[grad_trip->nnz] = endscale;
 	grad_trip->nnz++;
@@ -453,10 +454,12 @@ BipedLikelihood::GetLogLikelihood(const I3EventHypothesis &hypo,
 	//zenith	
 	//includes lever arm effect
         std::vector<double> muonLengths((*microSources).size(), 0.);
-                for (unsigned i = 1; i <(*microSources).size(); i++)
-                muonLengths[i] = ((*microSources)[i].GetPos() - (*microSources)[0].GetPos()).Magnitude();
+                for (unsigned i = 1; i <(*microSources).size()-1; i++){
+                	muonLengths[i] = ((*microSources)[i+1].GetPos() - (*microSources)[0].GetPos()).Magnitude();
+		}
+		muonLengths.back()=trackLength;
 	double zen((*microSources)[1].GetZenith()), azi((*microSources)[1].GetAzimuth());
-	for (unsigned i = 11; i < grad_trip->nrow-1; i+=7) {
+	for (unsigned i = 11; i < grad_trip->nrow-7; i+=7) {
 		unsigned nom=1;
 		((long *)(grad_trip->i))[grad_trip->nnz] = i;
 		((long *)(grad_trip->j))[grad_trip->nnz] = 11;
@@ -476,25 +479,25 @@ BipedLikelihood::GetLogLikelihood(const I3EventHypothesis &hypo,
 		grad_trip->nnz++;
 		nom++;
 	}
-	((long *)(grad_trip->i))[grad_trip->nnz] = grad_trip->nrow-1;
+	((long *)(grad_trip->i))[grad_trip->nnz] = grad_trip->nrow-3;
 	((long *)(grad_trip->j))[grad_trip->nnz] = 11;
 	((double *)(grad_trip->x))[grad_trip->nnz] = endscale;
 	grad_trip->nnz++;
-	((long *)(grad_trip->i))[grad_trip->nnz] = grad_trip->nrow-5;
+	((long *)(grad_trip->i))[grad_trip->nnz] = grad_trip->nrow-7;
 	((long *)(grad_trip->j))[grad_trip->nnz] = 11;
 	((double *)(grad_trip->x))[grad_trip->nnz] = -std::cos(zen)*std::cos(azi)*endscale*muonLengths.back();
 	grad_trip->nnz++;
-	((long *)(grad_trip->i))[grad_trip->nnz] = grad_trip->nrow-4;
+	((long *)(grad_trip->i))[grad_trip->nnz] = grad_trip->nrow-6;
 	((long *)(grad_trip->j))[grad_trip->nnz] = 11;
 	((double *)(grad_trip->x))[grad_trip->nnz] = -std::cos(zen)*std::sin(azi)*endscale*muonLengths.back();
 	grad_trip->nnz++;
-	((long *)(grad_trip->i))[grad_trip->nnz] = grad_trip->nrow-3;
+	((long *)(grad_trip->i))[grad_trip->nnz] = grad_trip->nrow-5;
 	((long *)(grad_trip->j))[grad_trip->nnz] = 11;
 	((double *)(grad_trip->x))[grad_trip->nnz] = std::sin(zen)*endscale*muonLengths.back();
 	grad_trip->nnz++;
 	//azimuth
 	//includes lever arm effect
-	for (unsigned i = 12; i < grad_trip->nrow-1; i+=7) {
+	for (unsigned i = 12; i < grad_trip->nrow-7; i+=7) {
 		unsigned nom = 1;
 		((long *)(grad_trip->i))[grad_trip->nnz] = i;
 		((long *)(grad_trip->j))[grad_trip->nnz] = 12;
@@ -510,15 +513,15 @@ BipedLikelihood::GetLogLikelihood(const I3EventHypothesis &hypo,
 		grad_trip->nnz++;
 		nom++;
 	}
-	((long *)(grad_trip->i))[grad_trip->nnz] = grad_trip->nrow-1;
+	((long *)(grad_trip->i))[grad_trip->nnz] = grad_trip->nrow-2;
 	((long *)(grad_trip->j))[grad_trip->nnz] = 12;
 	((double *)(grad_trip->x))[grad_trip->nnz] = endscale;
 	grad_trip->nnz++;
-	((long *)(grad_trip->i))[grad_trip->nnz] = grad_trip->nrow-6;
+	((long *)(grad_trip->i))[grad_trip->nnz] = grad_trip->nrow-8;
 	((long *)(grad_trip->j))[grad_trip->nnz] = 12;
 	((double *)(grad_trip->x))[grad_trip->nnz] = std::sin(zen)*std::sin(azi)*endscale*muonLengths.back();
 	grad_trip->nnz++;
-	((long *)(grad_trip->i))[grad_trip->nnz] = grad_trip->nrow-5;
+	((long *)(grad_trip->i))[grad_trip->nnz] = grad_trip->nrow-7;
 	((long *)(grad_trip->j))[grad_trip->nnz] = 12;
 	((double *)(grad_trip->x))[grad_trip->nnz] = -std::sin(zen)*std::cos(azi)*endscale*muonLengths.back();
 	grad_trip->nnz++;
