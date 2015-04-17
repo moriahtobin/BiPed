@@ -226,36 +226,36 @@ tray.AddService('I3GulliverLBFGSBFactory', 'JakobMagic',
 tray.AddService('I3BasicSeedServiceFactory', 'long', 
     FirstGuess='LongMuon',
     TimeShiftType='TNone')
-tray.AddService('I3BasicSeedServiceFactory', 'equal', 
-    FirstGuess='EqualMuon',
-    TimeShiftType='TNone')
+#tray.AddService('I3BasicSeedServiceFactory', 'equal', 
+#    FirstGuess='EqualMuon',
+#    TimeShiftType='TNone')
 #tray.Add('I3LogLikelihoodCalculator', 'LongMuonFitParams',
 #    FitName='LongMuon', LogLikelihoodService='bipedllh')
 #tray.Add('I3LogLikelihoodCalculator', 'EqualMuonFitParams',
 #    FitName='EqualMuon', LogLikelihoodService='bipedllh')
-tray.AddModule('I3SimpleFitter', 'Long', SeedService='long',
-    Parametrization='static',LogLikelihood='bipedllh',
-    Minimizer='NoEDM')
-tray.AddModule('I3SimpleFitter', 'Equal', SeedService='equal',
-    Parametrization='static',LogLikelihood='bipedllh',
-    Minimizer='NoEDM')
+#tray.AddModule('I3SimpleFitter', 'Long', SeedService='long',
+#    Parametrization='static',LogLikelihood='bipedllh',
+#    Minimizer='NoEDM')
+#tray.AddModule('I3SimpleFitter', 'Equal', SeedService='equal',
+#    Parametrization='static',LogLikelihood='bipedllh',
+#    Minimizer='NoEDM')
 
 
 
 
 #Find best seed hypothesis:
-bestseed='BestSeed'
-tray.AddModule(BiPedChooser, 'CoinToss', winner=bestseed, seedlist=['Long', 'Equal'])
-tray.AddService('I3BasicSeedServiceFactory', 'seed', 
-    FirstGuess=bestseed,
-    TimeShiftType='TNone')
+#bestseed='BestSeed'
+#tray.AddModule(BiPedChooser, 'CoinToss', winner=bestseed, seedlist=['Long', 'Equal'])
+#tray.AddService('I3BasicSeedServiceFactory', 'seed', 
+#    FirstGuess=bestseed,
+#    TimeShiftType='TNone')
 
 
 
 
 
 #Fit with best seed:
-tray.AddModule('I3SimpleFitter', 'BiPedHardCodeFit', SeedService='seed',
+tray.AddModule('I3SimpleFitter', 'BiPedHardCodeFit', SeedService='long', #'seed',
     Parametrization='bipedparam', LogLikelihood='bipedllh',
     Minimizer=sys.argv[1])
 
@@ -275,5 +275,5 @@ tray.AddModule(count,"mycounter")
 tray.AddModule('I3Writer', 'writer', filename=sys.argv[3])
 tray.AddModule('TrashCan','can')
 print "Got the tray put together, start running..."
-tray.Execute(25)
+tray.Execute(7)
 tray.Finish()
