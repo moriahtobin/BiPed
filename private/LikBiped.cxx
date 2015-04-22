@@ -39,9 +39,6 @@ class BipedLikelihood : public I3MillipedeService,
 
 		
 		I3VectorI3ParticlePtr ExtractHypothesis(const I3EventHypothesis&);
-//		cholmod_sparse* GetResponseMatrix(const std::vector<I3Particle> &sources, cholmod_sparse **gradient);
-		cholmod_sparse* GetGradientCollapser(boost::shared_ptr<I3Vector<I3Particle> > sources, double muEnFact, double endscale, double trackLength, bool gradient=false);
-		cholmod_sparse* GetLengthGradient(boost::shared_ptr<I3Vector<I3Particle> > sources, double muEnFact);
 };
 
 I3_POINTER_TYPEDEFS(BipedLikelihood);
@@ -87,169 +84,6 @@ BipedLikelihood::GetLogLikelihoodWithGradient(const I3EventHypothesis &hypo,
 	return GetLogLikelihood(hypo, &gradient, true, 1.);
 }
 
-cholmod_sparse* BipedLikelihood::GetLengthGradient(boost::shared_ptr<I3Vector<I3Particle> > sources, double muEnFact)
-{
-	size_t nsources = (*sources).size();
-	cholmod_sparse *length_gradient_part = cholmod_l_allocate_sparse(
-		nsources, 14u, 1u, true, true, 0, CHOLMOD_REAL, &c);
-	        long *cols = (long*)(length_gradient_part->p);
-	        long *rows = (long*)(length_gradient_part->i);
-	        double *x = (double*)(length_gradient_part->x);
-	        std::fill(&cols[0], &cols[14], 0);
-	        // The last column has one entry
-	        cols[14] = 1;
-	        // in the last row
-	        rows[0] = nsources-1;
-	        // dP[nsources-1,1]/dL
-	        x[0] = muEnFact/muonspacing_;
-#ifndef NDEBUG
-	if (!cholmod_l_check_sparse(length_gradient_part, &c))
-		log_fatal("Length gradient matrix is invalid!");
-#endif
-	return length_gradient_part;
-}
-cholmod_sparse* BipedLikelihood::GetGradientCollapser(boost::shared_ptr<I3Vector<I3Particle> > sources, double muEnFact, double endscale, double trackLength, bool gradient)
-{
-	size_t nsources = (*sources).size();
-	// Make matrix for converting multi-muon gradients to single muon little_gradients
-	cholmod_triplet *grad_trip = cholmod_l_allocate_triplet(
-	    nsources*7u, 14u, nsources*11u-5u, 0,
-	    CHOLMOD_REAL, &c);
-	// starting number of non-zero entries in this matrix:
-	grad_trip->nnz = 0;
-	//Keep the same gradients for the cascade
-	for (unsigned i = 0; i < 6; i++) { 
-		((long *)(grad_trip->i))[grad_trip->nnz] = i;
-		((long *)(grad_trip->j))[grad_trip->nnz] = i;
-		((double *)(grad_trip->x))[grad_trip->nnz] = 1;
-		grad_trip->nnz++;
-	}
-	//Combine muon gradients
-	//x, y, z, t
-	for (unsigned i = 7; i < grad_trip->nrow-7u; i+=7) {
-		((long *)(grad_trip->i))[grad_trip->nnz] = i;
-		((long *)(grad_trip->j))[grad_trip->nnz] = 7;
-		((double *)(grad_trip->x))[grad_trip->nnz] = muEnFact;
-		grad_trip->nnz++;
-	}
-	((long *)(grad_trip->i))[grad_trip->nnz] = grad_trip->nrow-7u;
-	((long *)(grad_trip->j))[grad_trip->nnz] = 7;
-	((double *)(grad_trip->x))[grad_trip->nnz] = endscale;
-	grad_trip->nnz++;
-	for (unsigned i = 8; i < grad_trip->nrow-7u; i+=7) {
-		((long *)(grad_trip->i))[grad_trip->nnz] = i;
-		((long *)(grad_trip->j))[grad_trip->nnz] = 8;
-		((double *)(grad_trip->x))[grad_trip->nnz] = muEnFact;
-		grad_trip->nnz++;
-	}
-	((long *)(grad_trip->i))[grad_trip->nnz] = grad_trip->nrow-6u;
-	((long *)(grad_trip->j))[grad_trip->nnz] = 8;
-	((double *)(grad_trip->x))[grad_trip->nnz] = endscale;
-	grad_trip->nnz++;
-	for (unsigned i = 9; i < grad_trip->nrow-7u; i+=7) {
-		((long *)(grad_trip->i))[grad_trip->nnz] = i;
-		((long *)(grad_trip->j))[grad_trip->nnz] = 9;
-		((double *)(grad_trip->x))[grad_trip->nnz] = muEnFact;
-		grad_trip->nnz++;
-	}
-	((long *)(grad_trip->i))[grad_trip->nnz] = grad_trip->nrow-5u;
-	((long *)(grad_trip->j))[grad_trip->nnz] = 9;
-	((double *)(grad_trip->x))[grad_trip->nnz] = endscale;
-	grad_trip->nnz++;
-	for (unsigned i = 10; i < grad_trip->nrow-7u; i+=7) {
-		((long *)(grad_trip->i))[grad_trip->nnz] = i;
-		((long *)(grad_trip->j))[grad_trip->nnz] = 10;
-		((double *)(grad_trip->x))[grad_trip->nnz] = muEnFact;
-		grad_trip->nnz++;
-	}
-	((long *)(grad_trip->i))[grad_trip->nnz] = grad_trip->nrow-4u;
-	((long *)(grad_trip->j))[grad_trip->nnz] = 10;
-	((double *)(grad_trip->x))[grad_trip->nnz] = endscale;
-	grad_trip->nnz++;
-
-	//zenith	
-	//includes lever arm effect
-        std::vector<double> muonLengths(nsources, 0.);
-                for (unsigned i = 1; i < nsources-1; i++){
-                	muonLengths[i] = muEnFact*((*sources)[i+1].GetPos() - (*sources)[0].GetPos()).Magnitude();
-		}
-		muonLengths.back()= endscale*trackLength;
-	double zen((*sources)[1].GetZenith()), azi((*sources)[1].GetAzimuth());
-	for (unsigned i = 11; i < grad_trip->nrow-7u; i+=7) {
-		unsigned nom=0;
-		((long *)(grad_trip->i))[grad_trip->nnz] = i;
-		((long *)(grad_trip->j))[grad_trip->nnz] = 11;
-		((double *)(grad_trip->x))[grad_trip->nnz] = muEnFact;
-		grad_trip->nnz++;
-		((long *)(grad_trip->i))[grad_trip->nnz] = i-4;
-		((long *)(grad_trip->j))[grad_trip->nnz] = 11;
-		((double *)(grad_trip->x))[grad_trip->nnz] = -std::cos(zen)*std::cos(azi)*muonLengths[nom];
-		grad_trip->nnz++;
-		((long *)(grad_trip->i))[grad_trip->nnz] = i-3;
-		((long *)(grad_trip->j))[grad_trip->nnz] = 11;
-		((double *)(grad_trip->x))[grad_trip->nnz] = -std::cos(zen)*std::sin(azi)*muonLengths[nom];
-		grad_trip->nnz++;
-		((long *)(grad_trip->i))[grad_trip->nnz] = i-2;
-		((long *)(grad_trip->j))[grad_trip->nnz] = 11;
-		((double *)(grad_trip->x))[grad_trip->nnz] = std::sin(zen)*muonLengths[nom];
-		grad_trip->nnz++;
-		nom++;
-	}
-	((long *)(grad_trip->i))[grad_trip->nnz] = grad_trip->nrow-3u;
-	((long *)(grad_trip->j))[grad_trip->nnz] = 11;
-	((double *)(grad_trip->x))[grad_trip->nnz] = endscale;
-	grad_trip->nnz++;
-	((long *)(grad_trip->i))[grad_trip->nnz] = grad_trip->nrow-7u;
-	((long *)(grad_trip->j))[grad_trip->nnz] = 11;
-	((double *)(grad_trip->x))[grad_trip->nnz] = -std::cos(zen)*std::cos(azi)*muonLengths.back();
-	grad_trip->nnz++;
-	((long *)(grad_trip->i))[grad_trip->nnz] = grad_trip->nrow-6u;
-	((long *)(grad_trip->j))[grad_trip->nnz] = 11;
-	((double *)(grad_trip->x))[grad_trip->nnz] = -std::cos(zen)*std::sin(azi)*muonLengths.back();
-	grad_trip->nnz++;
-	((long *)(grad_trip->i))[grad_trip->nnz] = grad_trip->nrow-5u;
-	((long *)(grad_trip->j))[grad_trip->nnz] = 11;
-	((double *)(grad_trip->x))[grad_trip->nnz] = std::sin(zen)*muonLengths.back();
-	grad_trip->nnz++;
-	//azimuth
-	//includes lever arm effect
-	for (unsigned i = 12; i < grad_trip->nrow-7u; i+=7) {
-		unsigned nom = 0;
-		((long *)(grad_trip->i))[grad_trip->nnz] = i;
-		((long *)(grad_trip->j))[grad_trip->nnz] = 12;
-		((double *)(grad_trip->x))[grad_trip->nnz] = muEnFact;
-		grad_trip->nnz++;
-		((long *)(grad_trip->i))[grad_trip->nnz] = i-5;
-		((long *)(grad_trip->j))[grad_trip->nnz] = 12;
-		((double *)(grad_trip->x))[grad_trip->nnz] = std::sin(zen)*std::sin(azi)*muonLengths[nom];
-		grad_trip->nnz++;
-		((long *)(grad_trip->i))[grad_trip->nnz] = i-4;
-		((long *)(grad_trip->j))[grad_trip->nnz] = 12;
-		((double *)(grad_trip->x))[grad_trip->nnz] = -std::sin(zen)*std::cos(azi)*muonLengths[nom];
-		grad_trip->nnz++;
-		nom++;
-	}
-	((long *)(grad_trip->i))[grad_trip->nnz] = grad_trip->nrow-2u;
-	((long *)(grad_trip->j))[grad_trip->nnz] = 12;
-	((double *)(grad_trip->x))[grad_trip->nnz] = endscale;
-	grad_trip->nnz++;
-	((long *)(grad_trip->i))[grad_trip->nnz] = grad_trip->nrow-7u;
-	((long *)(grad_trip->j))[grad_trip->nnz] = 12;
-	((double *)(grad_trip->x))[grad_trip->nnz] = std::sin(zen)*std::sin(azi)*muonLengths.back();
-	grad_trip->nnz++;
-	((long *)(grad_trip->i))[grad_trip->nnz] = grad_trip->nrow-6u;
-	((long *)(grad_trip->j))[grad_trip->nnz] = 12;
-	((double *)(grad_trip->x))[grad_trip->nnz] = -std::sin(zen)*std::cos(azi)*muonLengths.back();
-	grad_trip->nnz++;
-	cholmod_sparse *gradient_collapser = cholmod_l_triplet_to_sparse(grad_trip, nsources*11u-4u, &c);
-	cholmod_l_free_triplet(&grad_trip, &c);
-#ifndef NDEBUG
-	if (!cholmod_l_check_sparse(gradient_collapser, &c))
-		log_fatal("gradient collapser is invalid!");
-#endif
-	return gradient_collapser;
-}
-
 I3VectorI3ParticlePtr
 BipedLikelihood::ExtractHypothesis(const I3EventHypothesis &hypo)
 {
@@ -282,10 +116,10 @@ BipedLikelihood::GetDiagnostics(const I3EventHypothesis &hypo)
 		NextParticle.SetTime(PrevParticle.GetTime()+muonspacing_/I3Constants::c);
 		PrevParticle = NextParticle;
 	}
-	log_info("Composite Muon Created");
-	double lastSeg = trackLength/muonspacing_ - (MuSeg - 1.0);
-	double muEnFact = 1.0/(MuSeg - 1.0 + lastSeg);
-	double endscale = muEnFact*lastSeg;
+	log_info("Made microSources");
+	double lastSeg = trackLength/muonspacing_ - (MuSeg - 1.0);		
+	double MuEnFact = 1.0/(MuSeg - 1.0 + lastSeg);
+	double endscale = MuEnFact*lastSeg;
 	cholmod_triplet *pen_trip = cholmod_l_allocate_triplet(
 	    (*microSources).size(), (*sources).size(), (*microSources).size(), 0,
 	    CHOLMOD_REAL, &c);
@@ -298,17 +132,18 @@ BipedLikelihood::GetDiagnostics(const I3EventHypothesis &hypo)
 	for (unsigned i = 1; i < pen_trip->nrow-1; i++) {
 		((long *)(pen_trip->i))[pen_trip->nnz] = i;
 		((long *)(pen_trip->j))[pen_trip->nnz] = (i != 0);
-		((double *)(pen_trip->x))[pen_trip->nnz] = muEnFact;
+		((double *)(pen_trip->x))[pen_trip->nnz] = MuEnFact;
 		pen_trip->nnz++;
 	}
 		((long *)(pen_trip->i))[pen_trip->nnz] = i;
 		((long *)(pen_trip->j))[pen_trip->nnz] = pen_trip->nrow-1;
 		((double *)(pen_trip->x))[pen_trip->nnz] = endscale;
 	cholmod_sparse *collapser = cholmod_l_triplet_to_sparse(pen_trip, (*microSources).size(), &c);
-	log_info("Collapser Created");
 	cholmod_l_free_triplet(&pen_trip, &c);
+	log_info("Made collapser");
 	many_response_matrix = Millipede::GetResponseMatrix(domCache_, *microSources,
 	    domEfficiency_, muon_p, cascade_p, NULL, &c);
+	log_info("Made many particle response matrix");
 	if (many_response_matrix == NULL)
 		log_fatal("Null basis matrix");
 	response_matrix = cholmod_l_ssmult(many_response_matrix, 
@@ -392,7 +227,7 @@ BipedLikelihood::GetLogLikelihood(const I3EventHypothesis &hypo,
 	double y_v = (*sources)[0].GetY();
 	double z_v = (*sources)[0].GetZ();
 	double MuSeg = ceil(trackLength / muonspacing_);
-	log_warn("%f is the number of ceil(L/muonspacing)", MuSeg);
+	log_warn("%d is the number of ceil(L/muonspacing)", MuSeg);
 //	double check = trackLength - 0.5*muonspacing_;
 //	double d=0;
 
@@ -442,9 +277,9 @@ BipedLikelihood::GetLogLikelihood(const I3EventHypothesis &hypo,
 
 	//Create a energy scaling factor
 	double lastSeg = trackLength/muonspacing_ - (MuSeg - 1.0);		
-	double muEnFact = 1.0/(MuSeg - 1.0 + lastSeg);
-	double endscale = muEnFact*lastSeg;
-	log_warn("%f is the endscale, %f is lastSeg, %f is the muEnFact, %f MuSegs", endscale, lastSeg, muEnFact, MuSeg);
+	double MuEnFact = 1.0/(MuSeg - 1.0 + lastSeg);
+	double endscale = MuEnFact*lastSeg;
+	log_warn("%f is the endscale, %f is lastSeg, %f is the MuEnFact, %f MuSegs", endscale, lastSeg, MuEnFact, MuSeg);
 
 
 
@@ -470,11 +305,11 @@ BipedLikelihood::GetLogLikelihood(const I3EventHypothesis &hypo,
 //			((double *)(pen_trip->x))[row + col*pen_trip->nrow] = 1;
 //				pen_trip->nnz++;
 //			} else if (row !=0 && col !=0){
-//				((double *)(pen_trip->x))[row + col*pen_trip->nrow] = muEnFact;
+//				((double *)(pen_trip->x))[row + col*pen_trip->nrow] = MuEnFact;
 //				pen_trip->nnz++;
 //			}
 //		} else {
-//			((double *)(pen_trip->x))[pen_trip->nnz] = muEnFact;
+//			((double *)(pen_trip->x))[pen_trip->nnz] = MuEnFact;
 //			pen_trip->nnz++;
 //		}
 //	}
@@ -486,13 +321,13 @@ BipedLikelihood::GetLogLikelihood(const I3EventHypothesis &hypo,
 		((double *)(pen_trip->x))[pen_trip->nnz] = 1;
 		pen_trip->nnz++;
 	//Energy Correction for Composite Muon
-	for (unsigned i = 1; i < pen_trip->nrow-1u; i++) {
+	for (unsigned i = 1; i < pen_trip->nrow-1; i++) {
 		((long *)(pen_trip->i))[pen_trip->nnz] = i;
 		((long *)(pen_trip->j))[pen_trip->nnz] = (i != 0);
-		((double *)(pen_trip->x))[pen_trip->nnz] = muEnFact;
+		((double *)(pen_trip->x))[pen_trip->nnz] = MuEnFact;
 		pen_trip->nnz++;
 	}
-	((long *)(pen_trip->i))[pen_trip->nnz] = pen_trip->nrow-1u;
+	((long *)(pen_trip->i))[pen_trip->nnz] = pen_trip->nrow-1;
 	((long *)(pen_trip->j))[pen_trip->nnz] = 1;
 	((double *)(pen_trip->x))[pen_trip->nnz]=endscale;
 	cholmod_sparse *collapser = cholmod_l_triplet_to_sparse(pen_trip, (*microSources).size(), &c);
@@ -508,7 +343,28 @@ BipedLikelihood::GetLogLikelihood(const I3EventHypothesis &hypo,
 //	}
 	log_info("created matrix to collapse response matrix");
 
-	cholmod_sparse *length_grad_part = GetLengthGradient(microSources, muEnFact);
+//	cholmod_triplet *length_grad_part_trip = cholmod_l_allocate_triplet(
+//	    (*microSources).size(), 14, 1, 0, CHOLMOD_REAL, &c);
+	// starting number of non-zero entries in this matrix:
+//	length_grad_part_trip->nnz = 0;
+//	((long *)(length_grad_part_trip->i))[length_grad_part_trip->nnz] = length_grad_part_trip->nrow-1;
+//	((long *)(length_grad_part_trip->j))[length_grad_part_trip->nnz] = length_grad_part_trip->ncol-1;
+//	((double *)(length_grad_part_trip->x))[length_grad_part_trip->nnz] = MuEnFact/muonspacing_;
+//	length_grad_part_trip->nnz = 1;
+//	cholmod_sparse *length_grad_part = cholmod_l_triplet_to_sparse(length_grad_part_trip, 0, &c);
+//	cholmod_l_free_triplet(&length_grad_part_trip, &c);
+	cholmod_sparse *length_grad_part = cholmod_l_allocate_sparse(
+		(*microSources).size(), 14u, 1u, true, true, 0, CHOLMOD_REAL, &c);
+	        long *cols = (long*)(length_grad_part->p);
+	        long *rows = (long*)(length_grad_part->i);
+	        double *x = (double*)(length_grad_part->x);
+	        std::fill(&cols[0], &cols[14], 0);
+	        // The last column has one entry
+	        cols[14] = 1;
+	        // in the last row
+	        rows[0] = (*microSources).size()-1;
+	        // dP[nsources-1,1]/dL
+	        x[0] = MuEnFact/muonspacing_;
 	log_info("created matrix to grab out length gradient from the response matrix");
 
 
@@ -541,6 +397,180 @@ BipedLikelihood::GetLogLikelihood(const I3EventHypothesis &hypo,
 
 
 
+	// Make matrix for converting multi-muon gradients to single muon little_gradients
+	cholmod_triplet *grad_trip = cholmod_l_allocate_triplet(
+	    (*microSources).size()*7, 14u, (*microSources).size()*12, 0,
+	    CHOLMOD_REAL, &c);
+	// starting number of non-zero entries in this matrix:
+	grad_trip->nnz = 0;
+	//Keep the same gradients for the cascade
+	for (unsigned i = 0; i < 6; i++) { 
+		((long *)(grad_trip->i))[grad_trip->nnz] = i;
+		((long *)(grad_trip->j))[grad_trip->nnz] = i;
+		((double *)(grad_trip->x))[grad_trip->nnz] = 1;
+		grad_trip->nnz++;
+	}
+	//Combine muon gradients
+	//x, y, z, t
+	for (unsigned i = 7; i < grad_trip->nrow-7; i+=7) {
+		((long *)(grad_trip->i))[grad_trip->nnz] = i;
+		((long *)(grad_trip->j))[grad_trip->nnz] = 7;
+		((double *)(grad_trip->x))[grad_trip->nnz] = MuEnFact;
+		grad_trip->nnz++;
+	}
+	((long *)(grad_trip->i))[grad_trip->nnz] = grad_trip->nrow-7;
+	((long *)(grad_trip->j))[grad_trip->nnz] = 7;
+	((double *)(grad_trip->x))[grad_trip->nnz] = endscale;
+	grad_trip->nnz++;
+	for (unsigned i = 8; i < grad_trip->nrow-7; i+=7) {
+		((long *)(grad_trip->i))[grad_trip->nnz] = i;
+		((long *)(grad_trip->j))[grad_trip->nnz] = 8;
+		((double *)(grad_trip->x))[grad_trip->nnz] = MuEnFact;
+		grad_trip->nnz++;
+	}
+	((long *)(grad_trip->i))[grad_trip->nnz] = grad_trip->nrow-6;
+	((long *)(grad_trip->j))[grad_trip->nnz] = 8;
+	((double *)(grad_trip->x))[grad_trip->nnz] = endscale;
+	grad_trip->nnz++;
+	for (unsigned i = 9; i < grad_trip->nrow-7; i+=7) {
+		((long *)(grad_trip->i))[grad_trip->nnz] = i;
+		((long *)(grad_trip->j))[grad_trip->nnz] = 9;
+		((double *)(grad_trip->x))[grad_trip->nnz] = MuEnFact;
+		grad_trip->nnz++;
+	}
+	((long *)(grad_trip->i))[grad_trip->nnz] = grad_trip->nrow-5;
+	((long *)(grad_trip->j))[grad_trip->nnz] = 9;
+	((double *)(grad_trip->x))[grad_trip->nnz] = endscale;
+	grad_trip->nnz++;
+	for (unsigned i = 10; i < grad_trip->nrow-7; i+=7) {
+		((long *)(grad_trip->i))[grad_trip->nnz] = i;
+		((long *)(grad_trip->j))[grad_trip->nnz] = 10;
+		((double *)(grad_trip->x))[grad_trip->nnz] = MuEnFact;
+		grad_trip->nnz++;
+	}
+	((long *)(grad_trip->i))[grad_trip->nnz] = grad_trip->nrow-4;
+	((long *)(grad_trip->j))[grad_trip->nnz] = 10;
+	((double *)(grad_trip->x))[grad_trip->nnz] = endscale;
+	grad_trip->nnz++;
+
+	//zenith	
+	//includes lever arm effect
+        std::vector<double> muonLengths((*microSources).size(), 0.);
+                for (unsigned i = 1; i <(*microSources).size()-1; i++){
+                	muonLengths[i] = MuEnFact*((*microSources)[i+1].GetPos() - (*microSources)[0].GetPos()).Magnitude();
+		}
+		muonLengths.back()= endscale*trackLength;
+	double zen((*microSources)[1].GetZenith()), azi((*microSources)[1].GetAzimuth());
+	for (unsigned i = 11; i < grad_trip->nrow-7; i+=7) {
+		unsigned nom=0;
+		((long *)(grad_trip->i))[grad_trip->nnz] = i;
+		((long *)(grad_trip->j))[grad_trip->nnz] = 11;
+		((double *)(grad_trip->x))[grad_trip->nnz] = MuEnFact;
+		grad_trip->nnz++;
+		((long *)(grad_trip->i))[grad_trip->nnz] = i-4;
+		((long *)(grad_trip->j))[grad_trip->nnz] = 11;
+		((double *)(grad_trip->x))[grad_trip->nnz] = -std::cos(zen)*std::cos(azi)*muonLengths[nom];
+		grad_trip->nnz++;
+		((long *)(grad_trip->i))[grad_trip->nnz] = i-3;
+		((long *)(grad_trip->j))[grad_trip->nnz] = 11;
+		((double *)(grad_trip->x))[grad_trip->nnz] = -std::cos(zen)*std::sin(azi)*muonLengths[nom];
+		grad_trip->nnz++;
+		((long *)(grad_trip->i))[grad_trip->nnz] = i-2;
+		((long *)(grad_trip->j))[grad_trip->nnz] = 11;
+		((double *)(grad_trip->x))[grad_trip->nnz] = std::sin(zen)*muonLengths[nom];
+		grad_trip->nnz++;
+		nom++;
+	}
+	((long *)(grad_trip->i))[grad_trip->nnz] = grad_trip->nrow-3;
+	((long *)(grad_trip->j))[grad_trip->nnz] = 11;
+	((double *)(grad_trip->x))[grad_trip->nnz] = endscale;
+	grad_trip->nnz++;
+	((long *)(grad_trip->i))[grad_trip->nnz] = grad_trip->nrow-7;
+	((long *)(grad_trip->j))[grad_trip->nnz] = 11;
+	((double *)(grad_trip->x))[grad_trip->nnz] = -std::cos(zen)*std::cos(azi)*muonLengths.back();
+	grad_trip->nnz++;
+	((long *)(grad_trip->i))[grad_trip->nnz] = grad_trip->nrow-6;
+	((long *)(grad_trip->j))[grad_trip->nnz] = 11;
+	((double *)(grad_trip->x))[grad_trip->nnz] = -std::cos(zen)*std::sin(azi)*muonLengths.back();
+	grad_trip->nnz++;
+	((long *)(grad_trip->i))[grad_trip->nnz] = grad_trip->nrow-5;
+	((long *)(grad_trip->j))[grad_trip->nnz] = 11;
+	((double *)(grad_trip->x))[grad_trip->nnz] = std::sin(zen)*muonLengths.back();
+	grad_trip->nnz++;
+	//azimuth
+	//includes lever arm effect
+	for (unsigned i = 12; i < grad_trip->nrow-7; i+=7) {
+		unsigned nom = 0;
+		((long *)(grad_trip->i))[grad_trip->nnz] = i;
+		((long *)(grad_trip->j))[grad_trip->nnz] = 12;
+		((double *)(grad_trip->x))[grad_trip->nnz] = MuEnFact;
+		grad_trip->nnz++;
+		((long *)(grad_trip->i))[grad_trip->nnz] = i-5;
+		((long *)(grad_trip->j))[grad_trip->nnz] = 12;
+		((double *)(grad_trip->x))[grad_trip->nnz] = std::sin(zen)*std::sin(azi)*muonLengths[nom];
+		grad_trip->nnz++;
+		((long *)(grad_trip->i))[grad_trip->nnz] = i-4;
+		((long *)(grad_trip->j))[grad_trip->nnz] = 12;
+		((double *)(grad_trip->x))[grad_trip->nnz] = -std::sin(zen)*std::cos(azi)*muonLengths[nom];
+		grad_trip->nnz++;
+		nom++;
+	}
+	((long *)(grad_trip->i))[grad_trip->nnz] = grad_trip->nrow-2;
+	((long *)(grad_trip->j))[grad_trip->nnz] = 12;
+	((double *)(grad_trip->x))[grad_trip->nnz] = endscale;
+	grad_trip->nnz++;
+	((long *)(grad_trip->i))[grad_trip->nnz] = grad_trip->nrow-7;
+	((long *)(grad_trip->j))[grad_trip->nnz] = 12;
+	((double *)(grad_trip->x))[grad_trip->nnz] = std::sin(zen)*std::sin(azi)*muonLengths.back();
+	grad_trip->nnz++;
+	((long *)(grad_trip->i))[grad_trip->nnz] = grad_trip->nrow-6;
+	((long *)(grad_trip->j))[grad_trip->nnz] = 12;
+	((double *)(grad_trip->x))[grad_trip->nnz] = -std::sin(zen)*std::cos(azi)*muonLengths.back();
+	//length
+	//length depends upon the placement of and spacing of the muon segments
+	//changes in the length only change the last two muon segments positions
+	//all other muons remain in their previous location for epsilon changes in length
+//	std::vector<double> xLContribution(MuSeg, abs (std::sin(zen)*std::cos(azi)));
+//	std::vector<double> yLContribution(MuSeg, abs (std::sin(zen)*std::sin(azi)));
+//	std::vector<double> zLContribution(MuSeg, abs (std::cos(zen)));
+//	if ((*microSources).size() > 2){
+//		for(unsigned i = 7+7*((*microSources).size()-3); i < grad_trip->nrow; i+=7) {
+//			unsigned nom = 0;
+//			((long *)(grad_trip->i))[grad_trip->nnz] = i;
+//			((long *)(grad_trip->j))[grad_trip->nnz] = 13;
+//			((double *)(grad_trip->x))[grad_trip->nnz] = MuEnFact*xLContribution[nom];
+//			grad_trip->nnz++;
+//			((long *)(grad_trip->i))[grad_trip->nnz] = i+1;
+//			((long *)(grad_trip->j))[grad_trip->nnz] = 13;
+//			((double *)(grad_trip->x))[grad_trip->nnz] = MuEnFact*yLContribution[nom];
+//			grad_trip->nnz++;
+//			((long *)(grad_trip->i))[grad_trip->nnz] = i+2;
+//			((long *)(grad_trip->j))[grad_trip->nnz] = 13;
+//			((double *)(grad_trip->x))[grad_trip->nnz] = MuEnFact*zLContribution[nom];
+//			grad_trip->nnz++;
+//			nom ++;
+//		}
+//	}
+	//for the case of just one muon, the effective length (end point) of the muon segment
+	//changes for epsilon scale changes in L even though the vertex remains fixed
+//	else{
+//		unsigned nom = 0;
+//		((long *)(grad_trip->i))[grad_trip->nnz] = 7;
+//		((long *)(grad_trip->j))[grad_trip->nnz] = 13;
+//		((double *)(grad_trip->x))[grad_trip->nnz] = xLContribution[nom];
+//		grad_trip->nnz++;
+//		((long *)(grad_trip->i))[grad_trip->nnz] = 8;
+//		((long *)(grad_trip->j))[grad_trip->nnz] = 13;
+//		((double *)(grad_trip->x))[grad_trip->nnz] = yLContribution[nom];
+//		grad_trip->nnz++;
+//		((long *)(grad_trip->i))[grad_trip->nnz] = 9;
+//		((long *)(grad_trip->j))[grad_trip->nnz] = 13;
+//		((double *)(grad_trip->x))[grad_trip->nnz] = zLContribution[nom];
+//		grad_trip->nnz++;
+//	}
+	
+	cholmod_sparse *grad_collapser = cholmod_l_triplet_to_sparse(grad_trip, (*microSources).size()*12u, &c);
+	cholmod_l_free_triplet(&grad_trip, &c);
 //	cholmod_dense *one_muon_grad_mult =
 //	    cholmod_l_sparse_to_dense(grad_collapser, &c);
 //	for(unsigned row = 0; row < grad_collapser->nrow; row++){
@@ -550,8 +580,10 @@ BipedLikelihood::GetLogLikelihood(const I3EventHypothesis &hypo,
 //		std::cout<<row<<","<<col<<" : "<<elem<<std::endl;
 //		}
 //	}
-	cholmod_sparse *grad_collapser = GetGradientCollapser(microSources, trackLength, muEnFact, endscale, true);
 	log_info("Made the spatial gradient collapser");
+
+
+
 
 	cholmod_sparse *spatial_grad = cholmod_l_ssmult(manygradients, 
 	    grad_collapser, 0, 1, 0, &c);
@@ -623,9 +655,8 @@ BipedLikelihood::GetLogLikelihood(const I3EventHypothesis &hypo,
 	//Jun 20, 2013 replace and resp w/little_resp
 	//SOMETHING IN THE ABOVE STATEMENT IS CRYING OUT TO CHOLMOD
 		log_info("Just finished LLHGradient calculation");
-		cholmod_l_free_sparse(&gradients, &c);
 		cholmod_l_free_sparse(&manygradients, &c);
-		log_info("Freed the component particle gradients");
+		cholmod_l_free_sparse(&gradients, &c);
 		if (sources->size() == 1) {
 			// NB: the requested weight is already applied in
 			// the call to LLHGradient()
