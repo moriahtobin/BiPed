@@ -587,7 +587,6 @@ BipedLikelihood::GetLogLikelihood(const I3EventHypothesis &hypo,
 
 	cholmod_sparse *spatial_grad = cholmod_l_ssmult(manygradients, 
 	    grad_collapser, 0, 1, 0, &c);
-	cholmod_l_free_sparse(&manygradients, &c);
 	log_info("Made the spatial gradient");
 	double alpha[2] = {1,0}, beta[2] = {1,0};
 	gradients = cholmod_l_add(spatial_grad, length_grad, alpha, beta, true, true, &c);
@@ -656,6 +655,7 @@ BipedLikelihood::GetLogLikelihood(const I3EventHypothesis &hypo,
 	//Jun 20, 2013 replace and resp w/little_resp
 	//SOMETHING IN THE ABOVE STATEMENT IS CRYING OUT TO CHOLMOD
 		log_info("Just finished LLHGradient calculation");
+		cholmod_l_free_sparse(&manygradients, &c);
 		cholmod_l_free_sparse(&gradients, &c);
 		if (sources->size() == 1) {
 			// NB: the requested weight is already applied in
