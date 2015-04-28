@@ -116,9 +116,8 @@ BipedLikelihood::GetDiagnostics(const I3EventHypothesis &hypo)
 		NextParticle.SetTime(PrevParticle.GetTime()+muonspacing_/I3Constants::c);
 		PrevParticle = NextParticle;
 	}
-	log_info("Made microSources");
-	double lastSeg = trackLength/muonspacing_ - (MuSeg - 1.0);		
-	double MuEnFact = 1.0/(MuSeg - 1.0 + lastSeg);
+	double lastSeg = trackLength/muonspacing_ - (MuSeg-1);
+	double MuEnFact = muonspacing_/trackLength;
 	double endscale = MuEnFact*lastSeg;
 	cholmod_triplet *pen_trip = cholmod_l_allocate_triplet(
 	    (*microSources).size(), (*sources).size(), (*microSources).size(), 0,
@@ -138,12 +137,11 @@ BipedLikelihood::GetDiagnostics(const I3EventHypothesis &hypo)
 		((long *)(pen_trip->i))[pen_trip->nnz] = i;
 		((long *)(pen_trip->j))[pen_trip->nnz] = pen_trip->nrow-1;
 		((double *)(pen_trip->x))[pen_trip->nnz] = endscale;
-	cholmod_sparse *collapser = cholmod_l_triplet_to_sparse(pen_trip, (*microSources).size(), &c);
+		pen_trip->nnz++;
+	cholmod_sparse *collapser = cholmod_l_triplet_to_sparse(pen_trip, 0, &c);
 	cholmod_l_free_triplet(&pen_trip, &c);
-	log_info("Made collapser");
 	many_response_matrix = Millipede::GetResponseMatrix(domCache_, *microSources,
 	    domEfficiency_, muon_p, cascade_p, NULL, &c);
-	log_info("Made many particle response matrix");
 	if (many_response_matrix == NULL)
 		log_fatal("Null basis matrix");
 	response_matrix = cholmod_l_ssmult(many_response_matrix, 
@@ -227,7 +225,7 @@ BipedLikelihood::GetLogLikelihood(const I3EventHypothesis &hypo,
 	double y_v = (*sources)[0].GetY();
 	double z_v = (*sources)[0].GetZ();
 	double MuSeg = ceil(trackLength / muonspacing_);
-	log_warn("%d is the number of ceil(L/muonspacing)", MuSeg);
+	log_warn("%f is the number of ceil(L/muonspacing)", MuSeg);
 //	double check = trackLength - 0.5*muonspacing_;
 //	double d=0;
 
@@ -277,7 +275,7 @@ BipedLikelihood::GetLogLikelihood(const I3EventHypothesis &hypo,
 
 	//Create a energy scaling factor
 	double lastSeg = trackLength/muonspacing_ - (MuSeg - 1.0);		
-	double MuEnFact = 1.0/(MuSeg - 1.0 + lastSeg);
+	double MuEnFact = muonspacing_/trackLength;
 	double endscale = MuEnFact*lastSeg;
 	log_warn("%f is the endscale, %f is lastSeg, %f is the MuEnFact, %f MuSegs", endscale, lastSeg, MuEnFact, MuSeg);
 
@@ -330,6 +328,7 @@ BipedLikelihood::GetLogLikelihood(const I3EventHypothesis &hypo,
 	((long *)(pen_trip->i))[pen_trip->nnz] = pen_trip->nrow-1;
 	((long *)(pen_trip->j))[pen_trip->nnz] = 1;
 	((double *)(pen_trip->x))[pen_trip->nnz]=endscale;
+	pen_trip->nnz++;
 	cholmod_sparse *collapser = cholmod_l_triplet_to_sparse(pen_trip, (*microSources).size(), &c);
 	cholmod_l_free_triplet(&pen_trip, &c);
 //	cholmod_dense *one_muon_mult =
@@ -457,12 +456,13 @@ BipedLikelihood::GetLogLikelihood(const I3EventHypothesis &hypo,
 	//includes lever arm effect
         std::vector<double> muonLengths((*microSources).size(), 0.);
                 for (unsigned i = 1; i <(*microSources).size()-1; i++){
-                	muonLengths[i] = MuEnFact*((*microSources)[i+1].GetPos() - (*microSources)[0].GetPos()).Magnitude();
+                	muonLengths[i] = MuEnFact*i*muonspacing_;
 		}
 		muonLengths.back()= endscale*trackLength;
-	double zen((*microSources)[1].GetZenith()), azi((*microSources)[1].GetAzimuth());
+	double zen = (*microSources)[1].GetZenith();
+	double azi = (*microSources)[1].GetAzimuth();
+	unsigned nom = 1;
 	for (unsigned i = 11; i < grad_trip->nrow-7; i+=7) {
-		unsigned nom=0;
 		((long *)(grad_trip->i))[grad_trip->nnz] = i;
 		((long *)(grad_trip->j))[grad_trip->nnz] = 11;
 		((double *)(grad_trip->x))[grad_trip->nnz] = MuEnFact;
@@ -499,8 +499,8 @@ BipedLikelihood::GetLogLikelihood(const I3EventHypothesis &hypo,
 	grad_trip->nnz++;
 	//azimuth
 	//includes lever arm effect
+	nom = 1;
 	for (unsigned i = 12; i < grad_trip->nrow-7; i+=7) {
-		unsigned nom = 0;
 		((long *)(grad_trip->i))[grad_trip->nnz] = i;
 		((long *)(grad_trip->j))[grad_trip->nnz] = 12;
 		((double *)(grad_trip->x))[grad_trip->nnz] = MuEnFact;
@@ -569,7 +569,7 @@ BipedLikelihood::GetLogLikelihood(const I3EventHypothesis &hypo,
 //		grad_trip->nnz++;
 //	}
 	
-	cholmod_sparse *grad_collapser = cholmod_l_triplet_to_sparse(grad_trip, (*microSources).size()*12u, &c);
+	cholmod_sparse *grad_collapser = cholmod_l_triplet_to_sparse(grad_trip, (*microSources).size()*12, &c);
 	cholmod_l_free_triplet(&grad_trip, &c);
 //	cholmod_dense *one_muon_grad_mult =
 //	    cholmod_l_sparse_to_dense(grad_collapser, &c);
@@ -587,6 +587,7 @@ BipedLikelihood::GetLogLikelihood(const I3EventHypothesis &hypo,
 
 	cholmod_sparse *spatial_grad = cholmod_l_ssmult(manygradients, 
 	    grad_collapser, 0, 1, 0, &c);
+	cholmod_l_free_sparse(&manygradients, &c);
 	log_info("Made the spatial gradient");
 	double alpha[2] = {1,0}, beta[2] = {1,0};
 	gradients = cholmod_l_add(spatial_grad, length_grad, alpha, beta, true, true, &c);
@@ -655,7 +656,6 @@ BipedLikelihood::GetLogLikelihood(const I3EventHypothesis &hypo,
 	//Jun 20, 2013 replace and resp w/little_resp
 	//SOMETHING IN THE ABOVE STATEMENT IS CRYING OUT TO CHOLMOD
 		log_info("Just finished LLHGradient calculation");
-		cholmod_l_free_sparse(&manygradients, &c);
 		cholmod_l_free_sparse(&gradients, &c);
 		if (sources->size() == 1) {
 			// NB: the requested weight is already applied in
