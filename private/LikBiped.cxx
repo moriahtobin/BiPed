@@ -137,7 +137,6 @@ BipedLikelihood::GetDiagnostics(const I3EventHypothesis &hypo)
 		((long *)(pen_trip->i))[pen_trip->nnz] = i;
 		((long *)(pen_trip->j))[pen_trip->nnz] = pen_trip->nrow-1;
 		((double *)(pen_trip->x))[pen_trip->nnz] = endscale;
-		pen_trip->nnz++;
 	cholmod_sparse *collapser = cholmod_l_triplet_to_sparse(pen_trip, 0, &c);
 	cholmod_l_free_triplet(&pen_trip, &c);
 	many_response_matrix = Millipede::GetResponseMatrix(domCache_, *microSources,
@@ -225,7 +224,7 @@ BipedLikelihood::GetLogLikelihood(const I3EventHypothesis &hypo,
 	double y_v = (*sources)[0].GetY();
 	double z_v = (*sources)[0].GetZ();
 	double MuSeg = ceil(trackLength / muonspacing_);
-	log_warn("%f is the number of ceil(L/muonspacing)", MuSeg);
+	log_info("%f is the number of ceil(L/muonspacing)", MuSeg);
 //	double check = trackLength - 0.5*muonspacing_;
 //	double d=0;
 
@@ -277,7 +276,7 @@ BipedLikelihood::GetLogLikelihood(const I3EventHypothesis &hypo,
 	double lastSeg = trackLength/muonspacing_ - (MuSeg - 1.0);		
 	double MuEnFact = muonspacing_/trackLength;
 	double endscale = MuEnFact*lastSeg;
-	log_warn("%f is the endscale, %f is lastSeg, %f is the MuEnFact, %f MuSegs", endscale, lastSeg, MuEnFact, MuSeg);
+	log_info("%f is the endscale, %f is lastSeg, %f is the MuEnFact, %f MuSegs", endscale, lastSeg, MuEnFact, MuSeg);
 
 
 
@@ -681,7 +680,7 @@ BipedLikelihood::GetLogLikelihood(const I3EventHypothesis &hypo,
 			));
 			log_info("Increased Zen and Azi");			
 		}
-		for(int i=0; i<gradsources->size(); i++) log_warn_stream((*gradsources)[i]); //info->warn for error checking
+		for(int i=0; i<gradsources->size(); i++) log_info_stream((*gradsources)[i]); //info->warn for error checking
 	}
 	if (gradient == NULL) {
 	log_info("NULL GRADIENT MATRIX");
