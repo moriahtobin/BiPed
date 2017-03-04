@@ -1,5 +1,4 @@
 #include <millipede/Millipede.h>
-
 #include <phys-services/I3Calculator.h>
 #include <lilliput/parametrization/I3SimpleParametrization.h>
 #include <gulliver/I3ParametrizationBase.h>
@@ -66,7 +65,6 @@ BipedParametrization::UpdatePhysicsVariables()
 	BipedHypothesis(hypothesis_->particle, *sources,
 	    boundary_, muonspacing_);
         assert(sources->size() == 2);
-	//log_info("%f is the muon spacing in Para", muonspacing_); 
 
 	if (starting_cascade_dirstep_ > 0 && sources->size() > 0) {
 		double p0 = par_[par_.size() - 2];
@@ -100,7 +98,6 @@ BipedParametrization::UpdatePhysicsVariables()
 	hypothesis_->nonstd = sources;
 
 	if (gradient_) {
-		log_info("We have initialized Gradients in Para");
 		boost::shared_ptr<I3Vector<I3Particle> > gradsources(new
 		    I3Vector<I3Particle>);
 		gradsources->resize(sources->size());
@@ -109,7 +106,6 @@ BipedParametrization::UpdatePhysicsVariables()
 	                     gradpart.SetPos(0., 0., 0.); 
 	                     gradpart.SetDir(0., 0.); 
 	                     gradpart.SetTime(0.); 
-	        //             gradpart.SetEnergy(0.); 
 	                     gradpart.SetLength(0.); 
 	                     gradpart.SetSpeed(0.); 
 	        }
@@ -190,7 +186,6 @@ BipedParametrization::ApplyChainRule()
 	I3SimpleParametrization::ApplyChainRule();
 
 	if (starting_cascade_dirstep_ > 0) {
-		//log_info("StartingCascadeDirStepPositive");
 		// Gradient for initial cascade angular difference to track
 		// The following code is mostly cribbed from the half-sphere
 		// parametrization
@@ -249,33 +244,29 @@ BipedParametrization::Configure()
 	GetParameter("StartingCascadeStepSize", starting_cascade_dirstep_);
 
 	if (starting_cascade_dirstep_ > 0) {
-		//log_info("OneMoreTimePositiveCascadeDirStep");
 		I3FitParameterInitSpecs specs("dir");
 		specs.minval_ = 0;
 		specs.maxval_ = 6.3;
 		specs.stepsize_ = starting_cascade_dirstep_;
 
 		specs.name_ = "cascadedir1";
-		//log_info("What is CascadeDir1?");
 		parspecs_.push_back(specs);
 		
 		specs.name_ = "cascadedir2";
 		parspecs_.push_back(specs);
-		//log_info("PushingBackTheSpecsForCascadeDir2");
 
 		par_.resize(parspecs_.size());
-		//log_info("Hath Thou Resized the Parspecs?");
-	}
-		//log_info("%f is the muon spacing AGAIN o.O", muonspacing_); 
+	} 
 }
 
+//Construct physics hypothesis: One cascade and One muon track starting at the same point in the detector. The muon track should have a defineable end point.
 static void
 BipedHypothesis(I3ParticleConstPtr track,
     std::vector<I3Particle> &hypothesis, double boundary, double muonspacing)
 {
+	//Use length to create first guess muon energy
 	double MuonEnergy = track->GetLength()/4.50;
 	double CascEnergy = std::abs(track->GetEnergy()-MuonEnergy);
-	log_info("Cascade seed energy %f, Muon seed energy %f", CascEnergy, MuonEnergy);
 	I3Particle muon, cascade;
 	muon.SetType(I3Particle::MuMinus);
 	muon.SetShape(I3Particle::ContainedTrack);

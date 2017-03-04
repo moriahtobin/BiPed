@@ -72,7 +72,6 @@ BipedLikelihood::SetEvent(const I3Frame &frame)
 double
 BipedLikelihood::GetLogLikelihood(const I3EventHypothesis &hypo)
 {
-	log_info("InGetLLHLoop");
 	return GetLogLikelihood(hypo, NULL, false, 1.);
 }
 
@@ -80,7 +79,6 @@ double
 BipedLikelihood::GetLogLikelihoodWithGradient(const I3EventHypothesis &hypo,
     I3EventHypothesis &gradient, double weight)
 {
-	log_info("InGetLLHwGradsLoop");
 	return GetLogLikelihood(hypo, &gradient, true, 1.);
 }
 
@@ -94,7 +92,6 @@ BipedLikelihood::ExtractHypothesis(const I3EventHypothesis &hypo)
 		sources->push_back(*hypo.particle);
 	}
 	return sources;
-	log_info("We Have Sources!");
 }
 
 I3FrameObjectPtr
@@ -102,8 +99,9 @@ BipedLikelihood::GetDiagnostics(const I3EventHypothesis &hypo)
 {
 	cholmod_sparse *response_matrix, *many_response_matrix;
 	I3VectorI3ParticlePtr sources = ExtractHypothesis(hypo);
-	
-	log_info("Diagnostics Function");
+
+	//most of what follows is a compact form of many of the things that happen (with narrative)
+	//in the GetLogLikelihood function further down so look in GetLogLikelihood for running commentary
 	double trackLength = (*sources)[1].GetLength();
 	unsigned int MuSeg = ceil(trackLength / muonspacing_);
 	boost::shared_ptr<I3Vector<I3Particle> > microSources(new I3Vector<I3Particle>);
@@ -156,18 +154,6 @@ BipedLikelihood::GetDiagnostics(const I3EventHypothesis &hypo)
 	log_info("created Fit Statistics");
 	cholmod_l_free_sparse(&response_matrix, &c);
 
-//	response_matrix = Millipede::GetResponseMatrix(domCache_, *sources,
-//	    domEfficiency_, muon_p, cascade_p, NULL, &c);
-//	if (response_matrix == NULL)
-//		log_fatal("Null basis matrix");
-	
-//	MillipedeFitParamsPtr params =
-//	    boost::make_shared<MillipedeFitParams>();
-//	Millipede::FitStatistics(domCache_, *sources, I3Units::MeV,
-//		    response_matrix, params.get(), &c);
-//	cholmod_l_free_sparse(&response_matrix, &c);
-	
-	log_info("We Have Parameters!-Now With Longer Matching Response Matrix Calculations!");
 	return params;
 }
 
@@ -184,8 +170,6 @@ double
 BipedLikelihood::GetLogLikelihood(const I3EventHypothesis &hypo,
     I3EventHypothesis *gradient, bool fit_energy, double weight)
 {
-	//log_info("%f is the muon spacing", muonspacing_); 
-	log_info("In the GetLLH Function");
 	cholmod_sparse *response_matrix, *many_response_matrix, *gradients, *manygradients;
 	double llh = 0.;
 
@@ -225,92 +209,36 @@ BipedLikelihood::GetLogLikelihood(const I3EventHypothesis &hypo,
 	double z_v = (*sources)[0].GetZ();
 	double MuSeg = ceil(trackLength / muonspacing_);
 	log_info("%f is the number of ceil(L/muonspacing)", MuSeg);
-//	double check = trackLength - 0.5*muonspacing_;
-//	double d=0;
 
-	//create muon segment by grabbing original muon
+	//create segmented muon by grabbing original muon
 	I3Particle PrevParticle = (*sources)[1];
-	log_info("%d is the particle type of PrevParticle for Muon Looping", PrevParticle.GetType());
 	I3Particle NextParticle = PrevParticle;
-//        std::vector<double> muonLengths;
-	//Create Muon that consists of muon points with muon spacing of >= Muonspacing for last segments
-	//In case of Muon Length <= 2 >= 1.5 muonspacings, create hypthesis out of 2 muon points
-//	if (trackLength >= 1.5*muonspacing_){
-//		microSources->push_back(PrevParticle);
-//		unsigned int checkend = abs(check2-2);
-//		log_info("%d is the number of int(abs(L/muonspacing)-2))", checkend);
-//		double endspace = (trackLength-(checkend)*muonspacing_)/2;
+
+	//create muon segments using user specified muonspacing
 	for (double d = 0; d < MuSeg*muonspacing_; d = d+muonspacing_){
-		microSources->push_back(PrevParticle);
-//		for (double d=0; d<check; d = d+muonspacing_){
-//		for (; d<check; d = d+muonspacing_){
-			//log_info("%f is the length of our Muon now", d);
-			//log_info("%f is the total length of our muon", trackLength);
-			//log_info("%f is the muon spacing", muonspacing_); 
+		microSources->push_back(PrevParticle); 
 		NextParticle.SetPos(PrevParticle.ShiftAlongTrack(muonspacing_));
 		NextParticle.SetTime(PrevParticle.GetTime()+muonspacing_/I3Constants::c);
 		PrevParticle = NextParticle;
-//                muonLengths.push_back(d);
 	}
-//	NextParticle.SetTime(PrevParticle.GetTime()+(muonLengths.back() + endspace)/I3Constants::c);
-//	muonLengths.push_back(muonLengths.back()+endspace);
-//	NextParticle.SetPos(PrevParticle.ShiftAlongTrack(endspace));
-//	microSources->push_back(NextParticle);
-	log_info("We just made the composite muon");
-//	std::vector<double> muonLengths((*microSources).size()-1, muonspacing_);
-//	for (unsigned i = 1; i < (*microSources).size()-2; i++)
-//		muonLengths[i] = muonLengths[i-1]+muonspacing_;
-//	for (unsigned i = (*microSources).size()-2; i <= (*microSources).size(); i++)
-//		muonLengths[i] = muonLengths[i-1]+endspace;
-//	}
-	//Only one muon segment for very short Muons
-//	else {
-//	microSources->push_back(PrevParticle);
-//	muonLengths.push_back(0.0);
-//		(*sources).erase((*sources).end());
-//		log_info("%d is the particle type of Source Particle", (*sources)[0].GetType());
-//		log_info("We just made a cascade-only source");
-//	}
 
-	//Create a energy scaling factor
+	//Create energy scaling factor for muon segments, since the 	
+	//energy solver assumes it is dealing with the full particle energy
+	//Further, the last muon segment is not a full segment so here we
+	//create a energy scaling factor for the last segment (endscale)
 	double lastSeg = trackLength/muonspacing_ - (MuSeg - 1.0);		
 	double MuEnFact = muonspacing_/trackLength;
 	double endscale = MuEnFact*lastSeg;
-	log_info("%f is the endscale, %f is lastSeg, %f is the MuEnFact, %f MuSegs", endscale, lastSeg, MuEnFact, MuSeg);
 
-
-
-
-//	if (d > muonspacing_){
-//		(*sources)[1].SetLength(d*I3Units::m);
-//	}
-
-//	double MuLen = (*sources)[1].GetLength();
 
 	// Make a matrix of ones and zeros for collapsing the multi-muon response matrix
-	// into a single muon response matrix (little_response_matrix)
+	// into a single muon response matrix
 	// (a triplet is: matrix position i,j; and value x)
 	cholmod_triplet *pen_trip = cholmod_l_allocate_triplet(
 	    (*microSources).size(), (*sources).size(), (*microSources).size(), 0,
 	    CHOLMOD_REAL, &c);
 	// starting number of non-zero entries in this matrix:
 	pen_trip->nnz = 0;
-//	for(unsigned row = 0; row < pen_trip->nrow; row++){
-//		for(unsigned col = 0; col < pen_trip -> ncol; col ++){
-//			if(row==0 && col==1){
-//				((double *)(pen_trip->x))[row + col*pen_trip->nrow] = 1;
-//			((double *)(pen_trip->x))[row + col*pen_trip->nrow] = 1;
-//				pen_trip->nnz++;
-//			} else if (row !=0 && col !=0){
-//				((double *)(pen_trip->x))[row + col*pen_trip->nrow] = MuEnFact;
-//				pen_trip->nnz++;
-//			}
-//		} else {
-//			((double *)(pen_trip->x))[pen_trip->nnz] = MuEnFact;
-//			pen_trip->nnz++;
-//		}
-//	}
-
 
 	unsigned i = 0; 
 		((long *)(pen_trip->i))[pen_trip->nnz] = i;
@@ -330,6 +258,8 @@ BipedLikelihood::GetLogLikelihood(const I3EventHypothesis &hypo,
 	pen_trip->nnz++;
 	cholmod_sparse *collapser = cholmod_l_triplet_to_sparse(pen_trip, (*microSources).size(), &c);
 	cholmod_l_free_triplet(&pen_trip, &c);
+//	If you want to print out the matrix to check out,
+//	you have to convert it into a dense matrix as follows:
 //	cholmod_dense *one_muon_mult =
 //	cholmod_l_sparse_to_dense(collapser, &c);
 //	for(unsigned row = 0; row < collapser->nrow; row++){
@@ -339,18 +269,8 @@ BipedLikelihood::GetLogLikelihood(const I3EventHypothesis &hypo,
 //		std::cout<<row<<","<<col<<" : "<<elem<<std::endl;
 //		}
 //	}
-	log_info("created matrix to collapse response matrix");
 
-//	cholmod_triplet *length_grad_part_trip = cholmod_l_allocate_triplet(
-//	    (*microSources).size(), 14, 1, 0, CHOLMOD_REAL, &c);
-	// starting number of non-zero entries in this matrix:
-//	length_grad_part_trip->nnz = 0;
-//	((long *)(length_grad_part_trip->i))[length_grad_part_trip->nnz] = length_grad_part_trip->nrow-1;
-//	((long *)(length_grad_part_trip->j))[length_grad_part_trip->nnz] = length_grad_part_trip->ncol-1;
-//	((double *)(length_grad_part_trip->x))[length_grad_part_trip->nnz] = MuEnFact/muonspacing_;
-//	length_grad_part_trip->nnz = 1;
-//	cholmod_sparse *length_grad_part = cholmod_l_triplet_to_sparse(length_grad_part_trip, 0, &c);
-//	cholmod_l_free_triplet(&length_grad_part_trip, &c);
+	//Now we creat a matrix which grabs out the gradient for the length parameter from the response matrix
 	cholmod_sparse *length_grad_part = cholmod_l_allocate_sparse(
 		(*microSources).size(), 14u, 1u, true, true, 0, CHOLMOD_REAL, &c);
 	        long *cols = (long*)(length_grad_part->p);
@@ -363,26 +283,17 @@ BipedLikelihood::GetLogLikelihood(const I3EventHypothesis &hypo,
 	        rows[0] = (*microSources).size()-1;
 	        // dP[nsources-1,1]/dL
 	        x[0] = MuEnFact/muonspacing_;
-	log_info("created matrix to grab out length gradient from the response matrix");
 
 
 	many_response_matrix = Millipede::GetResponseMatrix(domCache_, *microSources,
 	    domEfficiency_, muon_p, cascade_p,
 	    (gradient == NULL) ? NULL : &manygradients, &c);
-	log_info("Response_matrix has been defined");
 	if (many_response_matrix == NULL){
 		log_fatal("Null basis matrix");
 	}
-//	cholmod_dense *response =
-//	    cholmod_l_sparse_to_dense(response_matrix, &c);
-//	for(unsigned row = 0; row < response_matrix->nrow; row++){
-//		for(unsigned col = 0; col < response_matrix->ncol; col++){
-//		double elem = ((double*)(response->x))
-//			[row + col*response->nrow];
-//		std::cout<<"response_matrix"<<row<<","<<col<<" : "<<elem<<std::endl;
-//		}
-//	}
-	// Colapse the resulting big matrix back into a 2-particle matrix
+
+	// Collapse the resulting big response matrix (with all muon segments) back into a 2-particle matrix
+	//AKA: We're just taking the light that was generated by all the muon segments and attributing them to the same composite muon
 	response_matrix = cholmod_l_ssmult(many_response_matrix, 
 	    collapser, 0, 1, 0, &c);
 	cholmod_l_free_sparse(&collapser, &c);
@@ -391,9 +302,6 @@ BipedLikelihood::GetLogLikelihood(const I3EventHypothesis &hypo,
 	    length_grad_part, 0, 1, 0, &c);
 	cholmod_l_free_sparse(&length_grad_part, &c);
 	cholmod_l_free_sparse(&many_response_matrix, &c);
-	log_info("Made length gradient");
-
-
 
 	// Make matrix for converting multi-muon gradients to single muon little_gradients
 	cholmod_triplet *grad_trip = cholmod_l_allocate_triplet(
@@ -450,7 +358,6 @@ BipedLikelihood::GetLogLikelihood(const I3EventHypothesis &hypo,
 	((long *)(grad_trip->j))[grad_trip->nnz] = 10;
 	((double *)(grad_trip->x))[grad_trip->nnz] = endscale;
 	grad_trip->nnz++;
-
 	//zenith	
 	//includes lever arm effect
         std::vector<double> muonLengths((*microSources).size(), 0.);
@@ -525,124 +432,34 @@ BipedLikelihood::GetLogLikelihood(const I3EventHypothesis &hypo,
 	((long *)(grad_trip->i))[grad_trip->nnz] = grad_trip->nrow-6;
 	((long *)(grad_trip->j))[grad_trip->nnz] = 12;
 	((double *)(grad_trip->x))[grad_trip->nnz] = -std::sin(zen)*std::cos(azi)*muonLengths.back();
-	//length
-	//length depends upon the placement of and spacing of the muon segments
-	//changes in the length only change the last two muon segments positions
-	//all other muons remain in their previous location for epsilon changes in length
-//	std::vector<double> xLContribution(MuSeg, abs (std::sin(zen)*std::cos(azi)));
-//	std::vector<double> yLContribution(MuSeg, abs (std::sin(zen)*std::sin(azi)));
-//	std::vector<double> zLContribution(MuSeg, abs (std::cos(zen)));
-//	if ((*microSources).size() > 2){
-//		for(unsigned i = 7+7*((*microSources).size()-3); i < grad_trip->nrow; i+=7) {
-//			unsigned nom = 0;
-//			((long *)(grad_trip->i))[grad_trip->nnz] = i;
-//			((long *)(grad_trip->j))[grad_trip->nnz] = 13;
-//			((double *)(grad_trip->x))[grad_trip->nnz] = MuEnFact*xLContribution[nom];
-//			grad_trip->nnz++;
-//			((long *)(grad_trip->i))[grad_trip->nnz] = i+1;
-//			((long *)(grad_trip->j))[grad_trip->nnz] = 13;
-//			((double *)(grad_trip->x))[grad_trip->nnz] = MuEnFact*yLContribution[nom];
-//			grad_trip->nnz++;
-//			((long *)(grad_trip->i))[grad_trip->nnz] = i+2;
-//			((long *)(grad_trip->j))[grad_trip->nnz] = 13;
-//			((double *)(grad_trip->x))[grad_trip->nnz] = MuEnFact*zLContribution[nom];
-//			grad_trip->nnz++;
-//			nom ++;
-//		}
-//	}
-	//for the case of just one muon, the effective length (end point) of the muon segment
-	//changes for epsilon scale changes in L even though the vertex remains fixed
-//	else{
-//		unsigned nom = 0;
-//		((long *)(grad_trip->i))[grad_trip->nnz] = 7;
-//		((long *)(grad_trip->j))[grad_trip->nnz] = 13;
-//		((double *)(grad_trip->x))[grad_trip->nnz] = xLContribution[nom];
-//		grad_trip->nnz++;
-//		((long *)(grad_trip->i))[grad_trip->nnz] = 8;
-//		((long *)(grad_trip->j))[grad_trip->nnz] = 13;
-//		((double *)(grad_trip->x))[grad_trip->nnz] = yLContribution[nom];
-//		grad_trip->nnz++;
-//		((long *)(grad_trip->i))[grad_trip->nnz] = 9;
-//		((long *)(grad_trip->j))[grad_trip->nnz] = 13;
-//		((double *)(grad_trip->x))[grad_trip->nnz] = zLContribution[nom];
-//		grad_trip->nnz++;
-//	}
-	
+	//Convert to sparse matrix for type matching
 	cholmod_sparse *grad_collapser = cholmod_l_triplet_to_sparse(grad_trip, (*microSources).size()*12, &c);
 	cholmod_l_free_triplet(&grad_trip, &c);
-//	cholmod_dense *one_muon_grad_mult =
-//	    cholmod_l_sparse_to_dense(grad_collapser, &c);
-//	for(unsigned row = 0; row < grad_collapser->nrow; row++){
-//		for(unsigned col = 0; col < grad_collapser->ncol; col++){
-//		double elem = ((double*)(one_muon_grad_mult->x))
-//			[row + col*one_muon_grad_mult->nrow];
-//		std::cout<<row<<","<<col<<" : "<<elem<<std::endl;
-//		}
-//	}
-	log_info("Made the spatial gradient collapser");
 
-
-
-
+	//use the gradient collapser matrix to create our 2-particle spatial gradients matrix from the muon segement many gradients matrix
 	cholmod_sparse *spatial_grad = cholmod_l_ssmult(manygradients, 
 	    grad_collapser, 0, 1, 0, &c);
-	log_info("Made the spatial gradient");
+	
+	//Combine spatial and length gradient matrices to produce the full gradients matrix
 	double alpha[2] = {1,0}, beta[2] = {1,0};
 	gradients = cholmod_l_add(spatial_grad, length_grad, alpha, beta, true, true, &c);
-	log_info("Combined the spatial and length gradients");
 	cholmod_l_free_sparse(&spatial_grad, &c);
 	cholmod_l_free_sparse(&length_grad, &c);
-
-
-//	log_info("Uno");
-
-//	cholmod_dense *little_gradient_fuckery =
-//	    cholmod_l_sparse_to_dense(little_gradients, &c);
-//	for(unsigned row = 0; row < little_gradients->nrow; row++){
-//		for(unsigned col = 0; col < little_gradients->ncol; col++){
-//		double elem = ((double*)(little_gradient_fuckery->x))
-//			[row + col*little_gradient_fuckery->nrow];
-//		std::cout<<row<<","<<col<<" : "<<elem<<std::endl;
-//		}
-//	}
-//	log_info("Dos");
-//	cholmod_l_free_dense(&little_gradient_fuckery, &c);
-
-	log_info("Combined Muon Response Matrix Created");
-
 	cholmod_l_free_sparse(&grad_collapser, &c);
 
 
-	log_info("I have a bad feeling about this"); 
-
-
-
-	
-
-//	cholmod_dense *tiny_response =
-//	    cholmod_l_sparse_to_dense(little_response_matrix, &c);
-//	for(unsigned row = 0; row < little_response_matrix->nrow; row++){
-//		for(unsigned col = 0; col < little_response_matrix->ncol; col++){
-//		double elem = ((double*)(tiny_response->x))
-//			[row + col*tiny_response->nrow];
-//		std::cout<<"little_response_matrix"<<row<<","<<col<<" : "<<elem<<std::endl;
-//		}
-//	}
-	
+	//Now fit for the energy using our collapsed gradients and response matrix
 	if (fit_energy) {
-		log_info("Solve for energy losses");
 		SolveEnergyLosses(*sources, response_matrix,
-	//Needs to either be micro and resp or src and little NOT micro and little
 		    (gradient == NULL ? NULL : gradients));
 		if (sources->size() == 1)
 			hypo.particle->SetEnergy((*sources)[0].GetEnergy());
-		log_info("We should now have a nice energy");
 	}
 
 
 	llh = Millipede::FitStatistics(domCache_, *sources, I3Units::MeV,
 	    response_matrix, NULL, &c);
-		//Dec 4th: above was micro and response....why did I do that? changed to sources and little, let's see if the llh goes crazy?
+		//check that the fitting is sensible by printing out the llh value for each set of checked parameters
 		log_info("[%f m mu, vertex (%f, %f, %f)] + ", trackLength, x_v, y_v, z_v);
 		log_info("[ (%f zen_mu, %f zen_casc), (%f azi_mu, %f azi_casc)] -> (llh=%f)", zen_track, zen_cascade, azi_track, azi_casc, llh);
 
@@ -651,16 +468,12 @@ BipedLikelihood::GetLogLikelihood(const I3EventHypothesis &hypo,
 //		assert(sources->size() == gradsources->size());
 		Millipede::LLHGradient(domCache_, *sources, *gradsources,
 		    I3Units::MeV, weight, response_matrix, gradients, &c);
-	//Jun 20, 2013 replace and resp w/little_resp
-	//SOMETHING IN THE ABOVE STATEMENT IS CRYING OUT TO CHOLMOD
-		log_info("Just finished LLHGradient calculation");
 		cholmod_l_free_sparse(&manygradients, &c);
 		cholmod_l_free_sparse(&gradients, &c);
 		if (sources->size() == 1) {
 			// NB: the requested weight is already applied in
 			// the call to LLHGradient()
 			I3Particle &p = *gradient->particle;
-			log_info("Only Cascade Grads Calculation");
 			p.SetPos(I3Position(
 			    p.GetPos().GetX() +
 			      (*gradsources)[0].GetPos().GetX(),
@@ -669,25 +482,21 @@ BipedLikelihood::GetLogLikelihood(const I3EventHypothesis &hypo,
 			    p.GetPos().GetZ() +
 			      (*gradsources)[0].GetPos().GetZ()
 			));
-			log_info("Increased Position");
 			p.SetTime(p.GetTime() + (*gradsources)[0].GetTime());
-			log_info("Increased Time");
 			p.SetDir(I3Direction(
 			    p.GetDir().GetZenith() +
 			      (*gradsources)[0].GetDir().GetZenith(),
 			    p.GetDir().GetAzimuth() +
 			      (*gradsources)[0].GetDir().GetAzimuth()
-			));
-			log_info("Increased Zen and Azi");			
+			));		
 		}
-		for(int i=0; i<gradsources->size(); i++) log_info_stream((*gradsources)[i]); //info->warn for error checking
+		for(int i=0; i<gradsources->size(); i++) log_info_stream((*gradsources)[i]);
 	}
 	if (gradient == NULL) {
-	log_info("NULL GRADIENT MATRIX");
+	log_debug("NULL GRADIENT MATRIX");
 	}
 
 	cholmod_l_free_sparse(&response_matrix, &c);
-	log_info("End of LLH Function");
 	return llh;
 }
 
